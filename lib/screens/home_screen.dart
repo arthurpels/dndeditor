@@ -1,4 +1,5 @@
 ﻿import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/character.dart';
 import '../repository/character_repository.dart';
@@ -19,14 +20,13 @@ class HomeScreen extends StatelessWidget {
             actions: [
               IconButton(
                 tooltip: 'Импорт',
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Импорт подключим следующим коммитом'),
-                    ),
-                  );
-                },
+                onPressed: () => _showImportDialog(context, repository),
                 icon: const Icon(Icons.file_upload_outlined),
+              ),
+              IconButton(
+                tooltip: 'Экспорт',
+                onPressed: () => _copyExportToClipboard(context, repository),
+                icon: const Icon(Icons.file_download_outlined),
               ),
             ],
           ),
@@ -89,6 +89,79 @@ class HomeScreen extends StatelessWidget {
         );
       },
     );
+  }
+
+  Future<void> _copyExportToClipboard(
+    BuildContext context,
+    CharacterRepository repository,
+  ) async {
+    await Clipboard.setData(ClipboardData(text: repository.exportOwnedJson()));
+    if (!context.mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('JSON персонажей скопирован в буфер')),
+    );
+  }
+
+  Future<void> _showImportDialog(
+    BuildContext context,
+    CharacterRepository repository,
+  ) async {
+    final controller = TextEditingController();
+    final importedJson = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Импорт JSON'),
+          content: SizedBox(
+            width: 560,
+            child: TextField(
+              controller: controller,
+              maxLines: 12,
+              decoration: const InputDecoration(
+                hintText: 'Вставь JSON со списком персонажей',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Отмена'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(controller.text),
+              child: const Text('Импортировать'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (importedJson == null || importedJson.trim().isEmpty) {
+      return;
+    }
+
+    try {
+      await repository.importOwnedJson(importedJson);
+      if (!context.mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('JSON импортирован')),
+      );
+    } on FormatException catch (error) {
+      if (!context.mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Не удалось импортировать JSON: ${error.message}')),
+      );
+    }
   }
 }
 
