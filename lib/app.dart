@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 import 'repository/character_repository.dart';
 import 'screens/home_screen.dart';
@@ -25,13 +25,13 @@ class _DndEditorAppState extends State<DndEditorApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'DND Editor',
-      theme: AppTheme.light(),
-      home: CharacterRepositoryScope(
-        repository: _repository,
-        child: const HomeScreen(),
+    return CharacterRepositoryScope(
+      repository: _repository,
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'DND Editor',
+        theme: AppTheme.light(),
+        home: const HomeScreen(),
       ),
     );
   }
