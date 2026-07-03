@@ -35,16 +35,31 @@ class CharacterRepository extends ChangeNotifier {
   factory CharacterRepository.seeded({
     List<Character>? readyMadeCharacters,
   }) {
-    return CharacterRepository._(ownedCharacters: <Character>[], readyMadeCharacters: readyMadeCharacters ?? <Character>[]);
+    return CharacterRepository._(
+      ownedCharacters: <Character>[],
+      readyMadeCharacters:
+          readyMadeCharacters ?? _defaultReadyMadeCharacters(),
+    );
   }
 
   static Future<CharacterRepository> bootstrap() async {
-    final repository = CharacterRepository.seeded(
-      readyMadeCharacters: await _loadReadyMadeCharacters(),
-    );
-    repository._prefs = await SharedPreferences.getInstance();
-    repository._loadOwnedCharacters();
-    return repository;
+    try {
+      final repository = CharacterRepository.seeded(
+        readyMadeCharacters: await _loadReadyMadeCharacters(),
+      );
+      try {
+        repository._prefs = await SharedPreferences.getInstance();
+        repository._loadOwnedCharacters();
+      } catch (error, stackTrace) {
+        debugPrint('SharedPreferences bootstrap failed: $error');
+        debugPrintStack(stackTrace: stackTrace);
+      }
+      return repository;
+    } catch (error, stackTrace) {
+      debugPrint('CharacterRepository bootstrap failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      return CharacterRepository.seeded();
+    }
   }
 
   static Future<List<Character>> _loadReadyMadeCharacters() async {
@@ -69,6 +84,41 @@ class CharacterRepository extends ChangeNotifier {
     }
 
     return characters;
+  }
+
+  static List<Character> _defaultReadyMadeCharacters() {
+    return <Character>[
+      const Character(
+        id: 'ready-torin',
+        name: 'Торин',
+        race: 'Dwarf',
+        characterClass: 'Fighter',
+        level: 1,
+        hitPoints: 12,
+        maxHitPoints: 12,
+        notes: 'Боевой ветеран из горного клана.',
+      ),
+      const Character(
+        id: 'ready-liael',
+        name: 'Лиэль',
+        race: 'Elf',
+        characterClass: 'Wizard',
+        level: 1,
+        hitPoints: 8,
+        maxHitPoints: 8,
+        notes: 'Исследует древние формулы и руины.',
+      ),
+      const Character(
+        id: 'ready-mila',
+        name: 'Мила',
+        race: 'Halfling',
+        characterClass: 'Rogue',
+        level: 1,
+        hitPoints: 9,
+        maxHitPoints: 9,
+        notes: 'Тихая, быстрая, очень внимательная к деталям.',
+      ),
+    ];
   }
 
   final List<Character> _ownedCharacters;
