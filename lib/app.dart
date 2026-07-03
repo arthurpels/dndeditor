@@ -18,7 +18,9 @@ class _DndEditorAppState extends State<DndEditorApp> {
   void initState() {
     super.initState();
     _repository = CharacterRepository.seeded();
-    _bootstrapRepository();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _bootstrapRepository();
+    });
   }
 
   @override
