@@ -1,5 +1,8 @@
-﻿import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+﻿import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../models/character.dart';
 import '../repository/character_repository.dart';
@@ -20,14 +23,14 @@ class HomeScreen extends StatelessWidget {
             title: const Text('DND Editor'),
             actions: [
               IconButton(
-                tooltip: 'Импорт',
-                onPressed: () => _showImportDialog(context, repository),
-                icon: const Icon(Icons.file_upload_outlined),
+                tooltip: 'Импорт из файла',
+                onPressed: () => _importFromFile(context, repository),
+                icon: const Icon(Icons.file_open_outlined),
               ),
               IconButton(
-                tooltip: 'Экспорт',
-                onPressed: () => _copyExportToClipboard(context, repository),
-                icon: const Icon(Icons.file_download_outlined),
+                tooltip: 'Экспорт в файл',
+                onPressed: () => _exportToFile(context, repository),
+                icon: const Icon(Icons.save_alt_outlined),
               ),
             ],
           ),
@@ -148,18 +151,94 @@ class HomeScreen extends StatelessWidget {
     await _openCharacter(context, added);
   }
 
-  Future<void> _copyExportToClipboard(
+  Future<void> _exportToFile(
     BuildContext context,
     CharacterRepository repository,
   ) async {
-    await Clipboard.setData(ClipboardData(text: repository.exportOwnedJson()));
-    if (!context.mounted) {
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      final timestamp = DateTime.now()
+          .toIso8601String()
+          .replaceAll(':', '-')
+          .replaceAll('.', '-');
+      final file = File('${directory.path}/dndeditor-export-$timestamp.json');
+      await file.writeAsString(repository.exportOwnedJson());
+
+      if (!context.mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('JSON сохранён: ${file.path}')),
+      );
+    } catch (error) {
+      if (!context.mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Не удалось сохранить JSON: $error')),
+      );
+    }
+  }
+
+  Future<void> _importFromFile(
+    BuildContext context,
+    CharacterRepository repository,
+  ) async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['json'],
+      withData: true,
+    );
+
+    if (result == null || result.files.isEmpty) {
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('JSON персонажей скопирован в буфер')),
-    );
+    final file = result.files.single;
+    String importedJson;
+    if (file.bytes != null) {
+      importedJson = String.fromCharCodes(file.bytes!);
+    } else if (file.path != null && file.path!.isNotEmpty) {
+      importedJson = await File(file.path!).readAsString();
+    } else {
+      if (!context.mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Не удалось прочитать выбранный файл')),
+      );
+      return;
+    }
+
+    try {
+      await repository.importOwnedJson(importedJson);
+      if (!context.mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('JSON импортирован')),
+      );
+    } on FormatException catch (error) {
+      if (!context.mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Не удалось импортировать JSON: ${error.message}')),
+      );
+    } catch (error) {
+      if (!context.mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Не удалось импортировать файл: $error')),
+      );
+    }
   }
 
   Future<bool> _confirmDelete(BuildContext context, String name) async {
@@ -184,65 +263,6 @@ class HomeScreen extends StatelessWidget {
     );
 
     return confirmed ?? false;
-  }
-
-  Future<void> _showImportDialog(
-    BuildContext context,
-    CharacterRepository repository,
-  ) async {
-    final controller = TextEditingController();
-    final importedJson = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Импорт JSON'),
-          content: SizedBox(
-            width: 560,
-            child: TextField(
-              controller: controller,
-              maxLines: 12,
-              decoration: const InputDecoration(
-                hintText: 'Вставь JSON со списком персонажей',
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Отмена'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(controller.text),
-              child: const Text('Импортировать'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (importedJson == null || importedJson.trim().isEmpty) {
-      return;
-    }
-
-    try {
-      await repository.importOwnedJson(importedJson);
-      if (!context.mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('JSON импортирован')),
-      );
-    } on FormatException catch (error) {
-      if (!context.mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Не удалось импортировать JSON: ${error.message}')),
-      );
-    }
   }
 }
 
