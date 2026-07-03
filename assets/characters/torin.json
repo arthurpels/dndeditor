@@ -1,0 +1,10 @@
+﻿{
+  "id": "ready-torin",
+  "name": "Торин",
+  "race": "Dwarf",
+  "characterClass": "Fighter",
+  "level": 1,
+  "hitPoints": 12,
+  "maxHitPoints": 12,
+  "notes": "Боевой ветеран из горного клана."
+}

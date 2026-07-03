@@ -1,0 +1,10 @@
+﻿{
+  "id": "ready-liael",
+  "name": "Лиэль",
+  "race": "Elf",
+  "characterClass": "Wizard",
+  "level": 1,
+  "hitPoints": 8,
+  "maxHitPoints": 8,
+  "notes": "Исследует древние формулы и руины."
+}

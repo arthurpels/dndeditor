@@ -3,6 +3,7 @@ import 'dart:collection';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/character.dart';
@@ -31,49 +32,43 @@ class CharacterRepository extends ChangeNotifier {
 
   static const String _storageKey = 'owned_characters_v1';
 
-  factory CharacterRepository.seeded() {
-    return CharacterRepository._(
-      ownedCharacters: <Character>[],
-      readyMadeCharacters: <Character>[
-        const Character(
-          id: 'ready-torin',
-          name: 'Торин',
-          race: 'Dwarf',
-          characterClass: 'Fighter',
-          level: 1,
-          hitPoints: 12,
-          maxHitPoints: 12,
-          notes: 'Боевой ветеран из горного клана.',
-        ),
-        const Character(
-          id: 'ready-liael',
-          name: 'Лиэль',
-          race: 'Elf',
-          characterClass: 'Wizard',
-          level: 1,
-          hitPoints: 8,
-          maxHitPoints: 8,
-          notes: 'Исследует древние формулы и руины.',
-        ),
-        const Character(
-          id: 'ready-mila',
-          name: 'Мила',
-          race: 'Halfling',
-          characterClass: 'Rogue',
-          level: 1,
-          hitPoints: 9,
-          maxHitPoints: 9,
-          notes: 'Тихая, быстрая, очень внимательная к деталям.',
-        ),
-      ],
-    );
+  factory CharacterRepository.seeded({
+    List<Character>? readyMadeCharacters,
+  }) {
+    return CharacterRepository._(ownedCharacters: <Character>[], readyMadeCharacters: readyMadeCharacters ?? <Character>[]);
   }
 
   static Future<CharacterRepository> bootstrap() async {
-    final repository = CharacterRepository.seeded();
+    final repository = CharacterRepository.seeded(
+      readyMadeCharacters: await _loadReadyMadeCharacters(),
+    );
     repository._prefs = await SharedPreferences.getInstance();
     repository._loadOwnedCharacters();
     return repository;
+  }
+
+  static Future<List<Character>> _loadReadyMadeCharacters() async {
+    const assetPaths = <String>[
+      'assets/characters/torin.json',
+      'assets/characters/liael.json',
+      'assets/characters/mila.json',
+    ];
+
+    final characters = <Character>[];
+    for (final assetPath in assetPaths) {
+      try {
+        final rawJson = await rootBundle.loadString(assetPath);
+        characters.add(
+          Character.fromJson(
+            Map<String, Object?>.from(jsonDecode(rawJson) as Map),
+          ),
+        );
+      } on Object {
+        continue;
+      }
+    }
+
+    return characters;
   }
 
   final List<Character> _ownedCharacters;
