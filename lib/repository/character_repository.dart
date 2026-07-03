@@ -42,6 +42,17 @@ class CharacterRepository extends ChangeNotifier {
     );
   }
 
+  Future<void> loadPersistedState() async {
+    try {
+      _prefs = await SharedPreferences.getInstance();
+      _loadOwnedCharacters();
+      notifyListeners();
+    } catch (error, stackTrace) {
+      debugPrint('SharedPreferences load failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
+  }
+
   static Future<CharacterRepository> bootstrap() async {
     try {
       final repository = CharacterRepository.seeded(
