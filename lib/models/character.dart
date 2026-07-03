@@ -129,25 +129,6 @@ class Character {
   static const List<String> skills = dndSkills;
 
   // ---------------------------------------------------------------------------
-  // Aliases for Dev D's home screen and character sheet display
-  // ---------------------------------------------------------------------------
-
-  /// Display name for the race (maps to raceId for now).
-  String get race => raceId;
-
-  /// Display name for the class (maps to classId).
-  String get characterClass => classId;
-
-  /// Current hit points alias.
-  int get hitPoints => currentHp;
-
-  /// Maximum hit points alias.
-  int get maxHitPoints => maxHp;
-
-  /// Short notes alias for biography.
-  String get notes => biography;
-
-  // ---------------------------------------------------------------------------
   // Factories
   // ---------------------------------------------------------------------------
 
