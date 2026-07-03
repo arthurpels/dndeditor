@@ -1,19 +1,16 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/ability.dart' as model;
+import '../../models/character.dart';
+import '../../models/skill.dart';
+import '../../repository/character_repository.dart';
 import '../mock_contract/ability.dart';
 import '../mock_contract/rules_engine.dart';
 import '../mock_contract/skill.dart';
 import '../state/character_creation_controller.dart';
 import '../widgets/wizard_step_scaffold.dart';
 
-/// Экран 5 PRD — «Мастер: Обзор»: полный предпросмотр карточки + «Сохранить».
-///
-/// Репозитория (Dev D) в проекте ещё нет, поэтому «Сохранить» здесь только
-/// демонстрирует итоговый JSON черновика — реальная запись в хранилище
-/// подключается позже теми, кто владеет `repository/`.
 class ReviewStep extends StatelessWidget {
   const ReviewStep({super.key});
 
@@ -62,8 +59,7 @@ class ReviewStep extends StatelessWidget {
 
           Text('Бонус мастерства: +$profBonus'),
           Text(
-            'Спасброски: ${controller.savingThrowProficiencies.map((a) => '${a.shortCode} '
-                '${_fmt(valueWithProficiency(abilityScore: finalAbilities[a]!, proficient: true, proficiencyBonus: profBonus))}').join(', ')}',
+            'Спасброски: ${controller.savingThrowProficiencies.map((a) => '${a.shortCode} ${_fmt(valueWithProficiency(abilityScore: finalAbilities[a]!, proficient: true, proficiencyBonus: profBonus))}').join(', ')}',
           ),
           const SizedBox(height: 20),
 
@@ -97,7 +93,7 @@ class ReviewStep extends StatelessWidget {
           const SizedBox(height: 24),
 
           FilledButton.icon(
-            onPressed: () => _showSaveDialog(context, controller),
+            onPressed: () => _save(context, controller),
             icon: const Icon(Icons.save),
             label: const Text('Сохранить'),
           ),
@@ -106,24 +102,55 @@ class ReviewStep extends StatelessWidget {
     );
   }
 
-  void _showSaveDialog(BuildContext context, CharacterCreationController controller) {
+  void _save(BuildContext context, CharacterCreationController controller) {
     final draft = controller.buildDraft();
-    final json = const JsonEncoder.withIndent('  ').convert(draft.toPreviewJson());
-    showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Черновик готов'),
-        content: SingleChildScrollView(
-          child: Text(
-            'Репозиторий (Dev D) ещё не подключён, поэтому вот итоговый JSON, '
-            'который должен уйти в CharacterRepository.save():\n\n$json',
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Ок')),
-        ],
-      ),
+
+    // AbilityScore (mock) и Ability (model) идут в одном порядке — индекс совпадает
+    final baseAbilities = <model.Ability, int>{
+      for (final entry in draft.baseAbilities.entries)
+        model.Ability.values[AbilityScore.values.indexOf(entry.key)]: entry.value,
+    };
+
+    // mock использует snake_case ('sleight_of_hand'), Skill.fromName ждёт camelCase
+    final skills = draft.skillProficiencies
+        .map((id) => Skill.fromName(_toCamel(id)))
+        .toSet();
+
+    final saves = draft.savingThrowProficiencies
+        .map((a) => model.Ability.values[AbilityScore.values.indexOf(a)])
+        .toSet();
+
+    final abilityMethodStr = switch (draft.abilityMethod) {
+      AbilityMethod.standardArray => 'standard_array',
+      AbilityMethod.pointBuy => 'point_buy',
+      AbilityMethod.rolled4d6 => 'roll',
+    };
+
+    final character = Character(
+      id: 'wizard',
+      name: draft.name,
+      level: draft.level,
+      raceId: draft.raceId,
+      classId: draft.classId,
+      backgroundId: draft.backgroundId,
+      abilityMethod: abilityMethodStr,
+      baseAbilities: baseAbilities,
+      skillProficiencies: skills,
+      savingThrowProficiencies: saves,
+      maxHp: draft.maxHp,
+      currentHp: draft.currentHp,
+      biography: draft.biography,
     );
+
+    CharacterRepositoryScope.of(context).addToOwned(character);
+    Navigator.of(context).pop();
+  }
+
+  // 'animal_handling' → 'animalHandling'
+  static String _toCamel(String snake) {
+    final parts = snake.split('_');
+    return parts.first +
+        parts.skip(1).map((p) => p[0].toUpperCase() + p.substring(1)).join();
   }
 }
 
