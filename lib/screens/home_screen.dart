@@ -59,11 +59,50 @@ class HomeScreen extends StatelessWidget {
                 ...repository.ownedCharacters.map(
                   (character) => Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: _CharacterCard(
-                      character: character,
-                      onOpen: () => _openCharacter(context, character),
-                      onDuplicate: () => repository.duplicateOwned(character.id),
-                      onDelete: () => repository.removeOwned(character.id),
+                    child: Dismissible(
+                      key: ValueKey(character.id),
+                      direction: DismissDirection.horizontal,
+                      background: _SwipeActionBackground(
+                        icon: Icons.copy_outlined,
+                        label: 'Дублировать',
+                        alignment: Alignment.centerLeft,
+                        color: Theme.of(context).colorScheme.tertiaryContainer,
+                      ),
+                      secondaryBackground: _SwipeActionBackground(
+                        icon: Icons.delete_outline,
+                        label: 'Удалить',
+                        alignment: Alignment.centerRight,
+                        color: Theme.of(context).colorScheme.errorContainer,
+                      ),
+                      confirmDismiss: (direction) async {
+                        if (direction == DismissDirection.startToEnd) {
+                          repository.duplicateOwned(character.id);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('${character.name} продублирован'),
+                              ),
+                            );
+                          }
+                          return false;
+                        }
+
+                        return _confirmDelete(context, character.name);
+                      },
+                      onDismissed: (_) {
+                        repository.removeOwned(character.id);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('${character.name} удалён'),
+                          ),
+                        );
+                      },
+                      child: _CharacterCard(
+                        character: character,
+                        onOpen: () => _openCharacter(context, character),
+                        onDuplicate: () => repository.duplicateOwned(character.id),
+                        onDelete: () => repository.removeOwned(character.id),
+                      ),
                     ),
                   ),
                 ),
@@ -121,6 +160,30 @@ class HomeScreen extends StatelessWidget {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('JSON персонажей скопирован в буфер')),
     );
+  }
+
+  Future<bool> _confirmDelete(BuildContext context, String name) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Удалить персонажа?'),
+          content: Text('Персонаж "$name" будет удалён из библиотеки.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Отмена'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Удалить'),
+            ),
+          ],
+        );
+      },
+    );
+
+    return confirmed ?? false;
   }
 
   Future<void> _showImportDialog(
@@ -347,6 +410,40 @@ class _EmptyState extends StatelessWidget {
             Text(subtitle),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _SwipeActionBackground extends StatelessWidget {
+  const _SwipeActionBackground({
+    required this.icon,
+    required this.label,
+    required this.alignment,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Alignment alignment;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      alignment: alignment,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon),
+          const SizedBox(width: 8),
+          Text(label),
+        ],
       ),
     );
   }
