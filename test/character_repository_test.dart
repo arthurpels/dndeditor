@@ -16,7 +16,7 @@ void main() {
   test('exports owned characters as valid JSON', () {
     final repository = CharacterRepository.seeded();
     repository.addToOwned(
-      const Character(
+      Character(
         id: 'custom-1',
         name: 'Aria',
         race: 'Human',
@@ -37,7 +37,7 @@ void main() {
   test('imports owned characters from json and replaces the current list', () async {
     final repository = CharacterRepository.seeded();
     repository.addToOwned(
-      const Character(
+      Character(
         id: 'custom-1',
         name: 'Old',
         race: 'Human',

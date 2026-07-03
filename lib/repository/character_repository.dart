@@ -99,7 +99,7 @@ class CharacterRepository extends ChangeNotifier {
 
   static List<Character> _defaultReadyMadeCharacters() {
     return <Character>[
-      const Character(
+      Character(
         id: 'ready-torin',
         name: 'Торин',
         race: 'Dwarf',
@@ -109,7 +109,7 @@ class CharacterRepository extends ChangeNotifier {
         maxHitPoints: 12,
         notes: 'Боевой ветеран из горного клана.',
       ),
-      const Character(
+      Character(
         id: 'ready-liael',
         name: 'Лиэль',
         race: 'Elf',
@@ -119,7 +119,7 @@ class CharacterRepository extends ChangeNotifier {
         maxHitPoints: 8,
         notes: 'Исследует древние формулы и руины.',
       ),
-      const Character(
+      Character(
         id: 'ready-mila',
         name: 'Мила',
         race: 'Halfling',
