@@ -1,3 +1,5 @@
+import '../data/dnd_reference_data.dart';
+import '../rules/rules_engine.dart';
 import 'ability.dart';
 import 'skill.dart';
 
@@ -49,6 +51,90 @@ class Character {
   String biography;
   DateTime createdAt;
   DateTime updatedAt;
+
+  // ---------------------------------------------------------------------------
+  // String-based computed getters (used by Dev C's character sheet UI)
+  // dndSkills and Skill.values share the same order, enabling index-based lookup.
+  // ---------------------------------------------------------------------------
+
+  /// All skill proficiency names as English strings ("Athletics", "Stealth", …).
+  Set<String> get _skillNames =>
+      skillProficiencies
+          .map((s) => dndSkills[Skill.values.indexOf(s)])
+          .toSet();
+
+  /// All saving throw proficiency abbreviations ("STR", "CON", …).
+  Set<String> get _saveAbbrs =>
+      savingThrowProficiencies.map((a) => a.abbr).toSet();
+
+  int baseScore(String abilityId) =>
+      baseAbilities[Ability.fromCode(abilityId.toLowerCase())] ?? 10;
+
+  int totalScore(String abilityId) =>
+      baseScore(abilityId) + RulesEngine.raceBonus(raceId, abilityId);
+
+  int modifierFor(String abilityId) =>
+      RulesEngine.modifier(totalScore(abilityId));
+
+  int get proficiencyBonus => RulesEngine.proficiencyBonus(level);
+
+  int skillValue(String skillName) {
+    final abilityId = RulesEngine.skillAbility(skillName);
+    final proficient = _skillNames.contains(skillName);
+    return modifierFor(abilityId) + (proficient ? proficiencyBonus : 0);
+  }
+
+  int savingThrowValue(String abilityId) {
+    final proficient = _saveAbbrs.contains(abilityId);
+    return modifierFor(abilityId) + (proficient ? proficiencyBonus : 0);
+  }
+
+  int get armorClass => 10 + modifierFor('DEX');
+  int get initiative => modifierFor('DEX');
+  int get passivePerception => 10 + skillValue('Perception');
+  int get speed => RulesEngine.raceSpeed(raceId);
+  int get hitDie => RulesEngine.hitDieForClass(classId);
+
+  Set<String> get backgroundSkillProficiencies =>
+      backgroundId != null
+          ? RulesEngine.skillProficienciesForBackground(backgroundId!)
+          : const {};
+
+  static const List<String> abilities = dndAbilities;
+  static const List<String> skills = dndSkills;
+
+  // ---------------------------------------------------------------------------
+  // Sample character for UI development and testing
+  // ---------------------------------------------------------------------------
+
+  factory Character.sample() => Character(
+        id: 'sample-thorin',
+        name: 'Торин',
+        level: 1,
+        raceId: 'dwarf',
+        classId: 'fighter',
+        backgroundId: 'soldier',
+        abilityMethod: 'standard_array',
+        baseAbilities: {
+          Ability.strength: 15,
+          Ability.dexterity: 13,
+          Ability.constitution: 14,
+          Ability.intelligence: 10,
+          Ability.wisdom: 12,
+          Ability.charisma: 8,
+        },
+        skillProficiencies: {Skill.athletics, Skill.intimidation},
+        savingThrowProficiencies: {Ability.strength, Ability.constitution},
+        maxHp: 12,
+        currentHp: 12,
+        biography: 'Дисциплинированный фронтовик, привыкший держать строй и прикрывать отряд.',
+        createdAt: DateTime.utc(2026, 7, 3),
+        updatedAt: DateTime.utc(2026, 7, 3),
+      );
+
+  // ---------------------------------------------------------------------------
+  // copyWith / serialization
+  // ---------------------------------------------------------------------------
 
   Character copyWith({
     String? id,

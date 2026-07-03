@@ -88,7 +88,7 @@ void main() {
         },
       );
       expect(RulesEngine.abilityScore(c, Ability.constitution), 15);
-      expect(RulesEngine.abilityScore(c, Ability.strength), 15); // no bonus
+      expect(RulesEngine.abilityScore(c, Ability.strength), 15);
     });
 
     test('Human gets +1 to all', () {
@@ -105,14 +105,7 @@ void main() {
     test('Tiefling CHA +2 INT +1', () {
       final c = _make(
         raceId: 'tiefling',
-        base: {
-          Ability.strength: 10,
-          Ability.dexterity: 10,
-          Ability.constitution: 10,
-          Ability.intelligence: 10,
-          Ability.wisdom: 10,
-          Ability.charisma: 10,
-        },
+        base: {for (final a in Ability.values) a: 10},
       );
       expect(RulesEngine.abilityScore(c, Ability.charisma), 12);
       expect(RulesEngine.abilityScore(c, Ability.intelligence), 11);
@@ -126,7 +119,6 @@ void main() {
 
   group('skillModifier()', () {
     test('not proficient: returns only ability mod', () {
-      // Elf, DEX base 14 → score 16 → mod +3. Not proficient in Stealth.
       final c = _make(
         raceId: 'elf',
         base: {
@@ -156,7 +148,6 @@ void main() {
         },
         skills: {Skill.stealth},
       );
-      // DEX score 16 → mod +3, prof +2 → total +5
       expect(RulesEngine.skillModifier(c, Skill.stealth), 5);
     });
 
@@ -164,17 +155,10 @@ void main() {
       final c = _make(
         raceId: 'human',
         level: 5,
-        base: {
-          Ability.strength: 10,
-          Ability.dexterity: 10,
-          Ability.constitution: 10,
-          Ability.intelligence: 10,
-          Ability.wisdom: 10,
-          Ability.charisma: 10,
-        },
+        base: {for (final a in Ability.values) a: 10},
         skills: {Skill.perception},
       );
-      // Human: WIS 10+1=11 → mod 0, prof lvl5 = +3 → total +3
+      // Human WIS 10+1=11 → mod 0, prof lvl5 = +3 → total +3
       expect(RulesEngine.skillModifier(c, Skill.perception), 3);
     });
   });
@@ -272,8 +256,7 @@ void main() {
         },
         skills: {Skill.perception},
       );
-      // Human WIS 14+1=15 → mod +2, proficient lvl1 +2 → perception +4
-      // Passive = 10+4 = 14
+      // Human WIS 14+1=15 → mod +2, proficient lvl1 +2 → perception +4 → passive 14
       expect(RulesEngine.passivePerception(c), 14);
     });
   });
@@ -283,25 +266,22 @@ void main() {
   // ---------------------------------------------------------------------------
 
   group('maxHp()', () {
-    test('Fighter d10 CON+2 lvl1 → 12', () {
-      expect(RulesEngine.maxHp(hitDie: 10, conModifier: 2, level: 1), 12);
-    });
+    test('Fighter d10 CON+2 lvl1 → 12',
+        () => expect(RulesEngine.maxHp(hitDie: 10, conModifier: 2, level: 1), 12));
 
-    test('Wizard d6 CON+0 lvl1 → 6', () {
-      expect(RulesEngine.maxHp(hitDie: 6, conModifier: 0, level: 1), 6);
-    });
+    test('Wizard d6 CON+0 lvl1 → 6',
+        () => expect(RulesEngine.maxHp(hitDie: 6, conModifier: 0, level: 1), 6));
 
-    test('Barbarian d12 CON+2 lvl2 → 12 + (7+2) = 21', () {
-      // lvl1: 12+2=14; lvl2: +averageRoll(12)+2 = +7+2 = +9 → 23
+    test('Barbarian d12 CON+2 lvl2 → 23', () {
+      // lvl1: 12+2=14; lvl2: averageRoll(12)+2 = 7+2 = +9 → 23
       expect(RulesEngine.maxHp(hitDie: 12, conModifier: 2, level: 2), 23);
     });
 
-    test('Minimum HP is always at least 1', () {
-      expect(RulesEngine.maxHp(hitDie: 6, conModifier: -5, level: 1), 1);
-    });
+    test('Minimum HP is always at least 1',
+        () => expect(RulesEngine.maxHp(hitDie: 6, conModifier: -5, level: 1), 1));
 
-    test('maxHpForCharacter: Dwarf Fighter STR15 DEX14 CON13 lvl1', () {
-      // Dwarf: CON 13+2=15 → mod +2. Fighter d10. HP = 10+2 = 12
+    test('maxHpForCharacter: Dwarf Fighter CON13 lvl1 → 12', () {
+      // Dwarf CON 13+2=15 → mod +2. Fighter d10. HP = 10+2 = 12
       final c = _make(
         raceId: 'dwarf',
         classId: 'fighter',
@@ -330,6 +310,53 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
+  // String-based API (Dev C wrappers)
+  // ---------------------------------------------------------------------------
+
+  group('RulesEngine string-based API', () {
+    test('modifier and proficiency bonus follow D&D rules', () {
+      expect(RulesEngine.modifier(15), 2);
+      expect(RulesEngine.modifier(8), -1);
+      expect(RulesEngine.proficiencyBonus(1), 2);
+      expect(RulesEngine.proficiencyBonus(5), 3);
+      expect(RulesEngine.proficiencyBonus(17), 6);
+    });
+
+    test('race, class and background lookups', () {
+      expect(RulesEngine.raceBonus('dwarf', 'CON'), 2);
+      expect(RulesEngine.raceSpeed('dwarf'), 25);
+      expect(RulesEngine.hitDieForClass('fighter'), 10);
+      expect(RulesEngine.savingThrowProficienciesForClass('fighter'),
+          {'STR', 'CON'});
+      expect(RulesEngine.skillProficienciesForBackground('soldier'),
+          {'Athletics', 'Intimidation'});
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Character computed getters (Dev C)
+  // ---------------------------------------------------------------------------
+
+  group('Character computed getters', () {
+    test('sample() derives correct combat and skill values', () {
+      final c = Character.sample();
+      // Dwarf: CON 14+2=16 → mod +3
+      expect(c.totalScore('CON'), 16);
+      expect(c.modifierFor('CON'), 3);
+      // Athletics: STR 15 base, Dwarf no STR bonus → score 15 → mod +2, proficient +2 = 4
+      expect(c.skillValue('Athletics'), 4);
+      // STR save: mod +2, proficient +2 = 4
+      expect(c.savingThrowValue('STR'), 4);
+      // AC: 10 + DEX mod. DEX 13 no bonus → mod +1 → 11
+      expect(c.armorClass, 11);
+      expect(c.initiative, 1);
+      // Perception: WIS 12 no bonus → mod +1, not proficient → 10+1=11
+      expect(c.passivePerception, 11);
+      expect(c.toJson()['name'], 'Торин');
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // AbilityGenerator
   // ---------------------------------------------------------------------------
 
@@ -343,28 +370,23 @@ void main() {
       expect(AbilityGenerator.pointBuySpent(List.filled(6, 15)), 54);
     });
 
-    test('standard optimised buy: 15,15,15,8,8,8 costs 27', () {
-      expect(
-          AbilityGenerator.pointBuySpent([15, 15, 15, 8, 8, 8]), 27);
+    test('15,15,15,8,8,8 costs 27', () {
+      expect(AbilityGenerator.pointBuySpent([15, 15, 15, 8, 8, 8]), 27);
     });
   });
 
   group('AbilityGenerator.standardArray', () {
-    test('has 6 values', () {
-      expect(AbilityGenerator.standardArray.length, 6);
-    });
-    test('sum is 72', () {
-      expect(AbilityGenerator.standardArray.reduce((a, b) => a + b), 72);
-    });
-    test('contains 15 and 8', () {
-      expect(AbilityGenerator.standardArray, containsAll([15, 8]));
-    });
+    test('has 6 values',
+        () => expect(AbilityGenerator.standardArray.length, 6));
+    test('sum is 72',
+        () => expect(AbilityGenerator.standardArray.reduce((a, b) => a + b), 72));
+    test('contains 15 and 8',
+        () => expect(AbilityGenerator.standardArray, containsAll([15, 8])));
   });
 
   group('AbilityGenerator.roll4d6DropLowest', () {
-    test('returns 6 values', () {
-      expect(AbilityGenerator.roll4d6DropLowest().length, 6);
-    });
+    test('returns 6 values',
+        () => expect(AbilityGenerator.roll4d6DropLowest().length, 6));
     test('all values between 3 and 18', () {
       for (final v in AbilityGenerator.roll4d6DropLowest()) {
         expect(v, inInclusiveRange(3, 18));
@@ -418,11 +440,8 @@ void main() {
       expect(
           restored.savingThrowProficiencies, original.savingThrowProficiencies);
       for (final a in Ability.values) {
-        expect(
-          restored.baseAbilities[a],
-          original.baseAbilities[a],
-          reason: '${a.abbr} mismatch',
-        );
+        expect(restored.baseAbilities[a], original.baseAbilities[a],
+            reason: '${a.abbr} mismatch');
       }
     });
   });

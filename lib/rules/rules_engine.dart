@@ -1,3 +1,4 @@
+import '../data/dnd_reference_data.dart' as ref;
 import '../data/game_data.dart';
 import '../models/ability.dart';
 import '../models/character.dart';
@@ -20,7 +21,7 @@ class RulesEngine {
   static int proficiencyBonus(int level) => 2 + ((level - 1) ~/ 4);
 
   // ---------------------------------------------------------------------------
-  // Ability scores
+  // Typed API (used internally and by branch-A tests)
   // ---------------------------------------------------------------------------
 
   /// Final ability score = base + racial bonus.
@@ -32,10 +33,6 @@ class RulesEngine {
 
   static int abilityModifier(Character c, Ability a) =>
       modifier(abilityScore(c, a));
-
-  // ---------------------------------------------------------------------------
-  // Skills & saving throws
-  // ---------------------------------------------------------------------------
 
   /// Skill modifier = ability modifier + proficiency bonus (if proficient).
   static int skillModifier(Character c, Skill s) {
@@ -53,10 +50,6 @@ class RulesEngine {
     return base + prof;
   }
 
-  // ---------------------------------------------------------------------------
-  // Combat / derived stats
-  // ---------------------------------------------------------------------------
-
   /// Unarmored AC = 10 + DEX modifier.
   static int armorClass(Character c) =>
       10 + abilityModifier(c, Ability.dexterity);
@@ -71,17 +64,10 @@ class RulesEngine {
   static int speed(Character c) =>
       GameData.raceById(c.raceId)?.speed ?? 30;
 
-  // ---------------------------------------------------------------------------
-  // Hit Points
-  // ---------------------------------------------------------------------------
-
   /// Average roll for a die: d8 → 5, d10 → 6, d12 → 7, d6 → 4.
-  /// PHB uses "average rounded up" for HP rolls after level 1.
   static int averageRoll(int die) => (die ~/ 2) + 1;
 
-  /// Max HP calculation (PHB p. 12 & class table):
-  /// Level 1 → max die + CON mod.
-  /// Level 2+ → each level adds average(die) + CON mod.
+  /// Max HP: level 1 = max die + CON mod; each subsequent level adds average + CON mod.
   static int maxHp({
     required int hitDie,
     required int conModifier,
@@ -94,7 +80,6 @@ class RulesEngine {
     return hp < 1 ? 1 : hp;
   }
 
-  /// Convenience wrapper that resolves class and CON mod from a character.
   static int maxHpForCharacter(Character c) {
     final cls = GameData.classById(c.classId);
     return maxHp(
@@ -104,14 +89,33 @@ class RulesEngine {
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // Helpers
-  // ---------------------------------------------------------------------------
-
-  /// Format a modifier with explicit sign: 3 → "+3", -1 → "−1".
+  /// Format a modifier with explicit sign: 3 → "+3", -1 → "-1".
   static String signed(int value) => value >= 0 ? '+$value' : '$value';
 
-  /// Saving throw proficiencies granted by a class.
   static Set<Ability> classSavingThrows(String classId) =>
       GameData.classById(classId)?.savingThrows.toSet() ?? {};
+
+  // ---------------------------------------------------------------------------
+  // String-based API (used by character sheet UI — Dev C)
+  // ---------------------------------------------------------------------------
+
+  /// Racial ability bonus by string ability id ("STR", "CON", …).
+  static int raceBonus(String raceId, String abilityId) =>
+      ref.raceAbilityBonuses[raceId]?[abilityId] ?? 0;
+
+  static int raceSpeed(String raceId) => ref.raceSpeeds[raceId] ?? 30;
+
+  static int hitDieForClass(String classId) => ref.classHitDice[classId] ?? 8;
+
+  /// Saving throw proficiency abbreviations for a class ("STR", "CON", …).
+  static Set<String> savingThrowProficienciesForClass(String classId) =>
+      ref.classSavingThrows[classId] ?? const {};
+
+  /// Skill proficiency names for a background ("Athletics", "Intimidation", …).
+  static Set<String> skillProficienciesForBackground(String backgroundId) =>
+      ref.backgroundSkills[backgroundId] ?? const {};
+
+  /// Governing ability abbreviation for a skill name ("Athletics" → "STR").
+  static String skillAbility(String skillName) =>
+      ref.skillAbilityMap[skillName] ?? 'INT';
 }

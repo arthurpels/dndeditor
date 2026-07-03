@@ -4,10 +4,18 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:dndeditor/main.dart';
 
 void main() {
-  testWidgets('App launches into the character creation wizard', (WidgetTester tester) async {
-    await tester.pumpWidget(const MyApp());
+  testWidgets('shows the library screen with starter actions',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(const DndEditorApp());
 
-    expect(find.text('Основа персонажа'), findsOneWidget);
-    expect(find.widgetWithText(TextFormField, 'Имя персонажа'), findsOneWidget);
+    expect(find.text('Редактор персонажей D&D'), findsOneWidget);
+    expect(find.text('Мои персонажи'), findsOneWidget);
+    expect(find.text('Готовые персонажи'), findsOneWidget);
+    expect(find.text('Создать персонажа'), findsOneWidget);
+
+    await tester.tap(find.text('Создать персонажа'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Мастер создания'), findsOneWidget);
   });
 }
