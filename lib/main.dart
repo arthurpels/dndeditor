@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'models/character.dart';
+
 void main() {
   runApp(const DndEditorApp());
 }
@@ -38,13 +40,28 @@ class LibraryScreen extends StatelessWidget {
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
-          const CharacterTile(
-            name: 'Торин',
-            details: 'Dwarf • Fighter • level 1 • HP 12/12',
-          ),
-          const CharacterTile(
-            name: 'Элара',
-            details: 'Elf • Wizard • level 1 • HP 8/8',
+          CharacterTile.fromCharacter(Character.sample()),
+          CharacterTile.fromCharacter(
+            Character.sample().copyWith(
+              id: 'sample-elara',
+              name: 'Элара',
+              raceId: 'elf',
+              classId: 'wizard',
+              backgroundId: 'sage',
+              baseAbilities: const {
+                'STR': 8,
+                'DEX': 14,
+                'CON': 12,
+                'INT': 15,
+                'WIS': 13,
+                'CHA': 10,
+              },
+              skillProficiencies: const {'Arcana', 'History'},
+              savingThrowProficiencies: const {'INT', 'WIS'},
+              maxHp: 8,
+              currentHp: 8,
+              biography: 'Исследовательница древних текстов и магических традиций.',
+            ),
           ),
           const SizedBox(height: 24),
           const Text(
@@ -52,13 +69,13 @@ class LibraryScreen extends StatelessWidget {
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
-          const CharacterTile(
+          CharacterTile.fromSummary(
             name: 'Лирис',
-            details: 'Prebuilt sample character',
+            details: 'Готовый пример для библиотеки и импорта',
           ),
-          const CharacterTile(
+          CharacterTile.fromSummary(
             name: 'Бран',
-            details: 'Prebuilt sample character',
+            details: 'Готовый пример для библиотеки и импорта',
           ),
           const SizedBox(height: 24),
           const Text(
@@ -100,6 +117,15 @@ class LibraryScreen extends StatelessWidget {
 
 class CharacterTile extends StatelessWidget {
   const CharacterTile({super.key, required this.name, required this.details});
+
+  CharacterTile.fromSummary({super.key, required String name, required String details})
+      : name = name,
+        details = details;
+
+  CharacterTile.fromCharacter(Character character, {super.key})
+      : name = character.name,
+        details =
+            '${character.raceId} • ${character.classId} • level ${character.level} • HP ${character.currentHp}/${character.maxHp}';
 
   final String name;
   final String details;
