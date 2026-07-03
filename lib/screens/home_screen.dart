@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../models/character.dart';
 import '../repository/character_repository.dart';
+import 'character_sheet_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -60,7 +61,7 @@ class HomeScreen extends StatelessWidget {
                     padding: const EdgeInsets.only(bottom: 12),
                     child: _CharacterCard(
                       character: character,
-                      onOpen: () {},
+                      onOpen: () => _openCharacter(context, character),
                       onDuplicate: () => repository.duplicateOwned(character.id),
                       onDelete: () => repository.removeOwned(character.id),
                     ),
@@ -77,10 +78,10 @@ class HomeScreen extends StatelessWidget {
                   padding: const EdgeInsets.only(bottom: 12),
                   child: _CharacterCard(
                     character: character,
-                    onOpen: () => repository.addToOwned(character),
+                    onOpen: () => _addAndOpenCharacter(context, repository, character),
                     onDuplicate: null,
                     onDelete: null,
-                    openLabel: 'Добавить в мои',
+                    openLabel: 'Добавить и открыть',
                   ),
                 ),
               ),
@@ -89,6 +90,23 @@ class HomeScreen extends StatelessWidget {
         );
       },
     );
+  }
+
+  Future<void> _openCharacter(BuildContext context, Character character) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => CharacterSheetScreen(characterId: character.id),
+      ),
+    );
+  }
+
+  Future<void> _addAndOpenCharacter(
+    BuildContext context,
+    CharacterRepository repository,
+    Character character,
+  ) async {
+    final added = repository.addToOwned(character);
+    await _openCharacter(context, added);
   }
 
   Future<void> _copyExportToClipboard(
@@ -248,55 +266,59 @@ class _CharacterCard extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    character.name,
-                    style: theme.textTheme.titleMedium,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onOpen,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      character.name,
+                      style: theme.textTheme.titleMedium,
+                    ),
                   ),
-                ),
-                Text('${character.level} lvl'),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text('${character.race} / ${character.characterClass}'),
-            const SizedBox(height: 6),
-            Text('HP ${character.hitPoints}/${character.maxHitPoints}'),
-            if (character.notes.isNotEmpty) ...[
+                  Text('${character.level} lvl'),
+                ],
+              ),
               const SizedBox(height: 8),
-              Text(
-                character.notes,
-                style: theme.textTheme.bodySmall,
+              Text('${character.race} / ${character.characterClass}'),
+              const SizedBox(height: 6),
+              Text('HP ${character.hitPoints}/${character.maxHitPoints}'),
+              if (character.notes.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  character.notes,
+                  style: theme.textTheme.bodySmall,
+                ),
+              ],
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  FilledButton.tonal(
+                    onPressed: onOpen,
+                    child: Text(openLabel),
+                  ),
+                  if (onDuplicate != null)
+                    OutlinedButton(
+                      onPressed: onDuplicate,
+                      child: const Text('Дублировать'),
+                    ),
+                  if (onDelete != null)
+                    OutlinedButton(
+                      onPressed: onDelete,
+                      child: const Text('Удалить'),
+                    ),
+                ],
               ),
             ],
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                FilledButton.tonal(
-                  onPressed: onOpen,
-                  child: Text(openLabel),
-                ),
-                if (onDuplicate != null)
-                  OutlinedButton(
-                    onPressed: onDuplicate,
-                    child: const Text('Дублировать'),
-                  ),
-                if (onDelete != null)
-                  OutlinedButton(
-                    onPressed: onDelete,
-                    child: const Text('Удалить'),
-                  ),
-              ],
-            ),
-          ],
+          ),
         ),
       ),
     );

@@ -126,10 +126,12 @@ class CharacterRepository extends ChangeNotifier {
     return draft;
   }
 
-  void addToOwned(Character character) {
-    _ownedCharacters.insert(0, character.copyWith(id: _nextId(character.id)));
+  Character addToOwned(Character character) {
+    final added = character.copyWith(id: _nextId(character.id));
+    _ownedCharacters.insert(0, added);
     notifyListeners();
     unawaited(_persistOwnedCharacters());
+    return added;
   }
 
   void duplicateOwned(String id) {
