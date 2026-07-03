@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
 
@@ -17,8 +17,8 @@ class CharacterRepositoryScope extends InheritedNotifier<CharacterRepository> {
   }) : super(notifier: repository);
 
   static CharacterRepository of(BuildContext context) {
-    final scope =
-        context.dependOnInheritedWidgetOfExactType<CharacterRepositoryScope>();
+    final scope = context
+        .dependOnInheritedWidgetOfExactType<CharacterRepositoryScope>();
     assert(scope != null, 'CharacterRepositoryScope is missing above context');
     return scope!.notifier!;
   }
@@ -28,19 +28,27 @@ class CharacterRepository extends ChangeNotifier {
   CharacterRepository._({
     required List<Character> ownedCharacters,
     required List<Character> readyMadeCharacters,
-  })  : _ownedCharacters = ownedCharacters,
-        _readyMadeCharacters = readyMadeCharacters;
+  }) : _ownedCharacters = ownedCharacters,
+       _readyMadeCharacters = readyMadeCharacters;
 
   static const String _storageKey = 'owned_characters_v1';
 
-  factory CharacterRepository.seeded({
-    List<Character>? readyMadeCharacters,
-  }) {
+  factory CharacterRepository.seeded({List<Character>? readyMadeCharacters}) {
     return CharacterRepository._(
       ownedCharacters: <Character>[],
-      readyMadeCharacters:
-          readyMadeCharacters ?? _defaultReadyMadeCharacters(),
+      readyMadeCharacters: readyMadeCharacters ?? _defaultReadyMadeCharacters(),
     );
+  }
+
+  Future<void> loadPersistedState() async {
+    try {
+      _prefs = await SharedPreferences.getInstance();
+      _loadOwnedCharacters();
+      notifyListeners();
+    } catch (error, stackTrace) {
+      debugPrint('SharedPreferences load failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
   }
 
   static Future<CharacterRepository> bootstrap() async {
@@ -138,9 +146,9 @@ class CharacterRepository extends ChangeNotifier {
       UnmodifiableListView(_readyMadeCharacters);
 
   String exportOwnedJson() {
-    return const JsonEncoder.withIndent('  ').convert(
-      _ownedCharacters.map((character) => character.toJson()).toList(),
-    );
+    return const JsonEncoder.withIndent(
+      '  ',
+    ).convert(_ownedCharacters.map((character) => character.toJson()).toList());
   }
 
   Future<void> importOwnedJson(String source) async {
@@ -158,9 +166,8 @@ class CharacterRepository extends ChangeNotifier {
       ..clear()
       ..addAll(
         rawCharacters.map(
-          (entry) => Character.fromJson(
-            Map<String, Object?>.from(entry as Map),
-          ),
+          (entry) =>
+              Character.fromJson(Map<String, Object?>.from(entry as Map)),
         ),
       );
 
@@ -187,10 +194,7 @@ class CharacterRepository extends ChangeNotifier {
   void duplicateOwned(String id) {
     final source = _ownedCharacters.firstWhere((item) => item.id == id);
     addToOwned(
-      source.copyWith(
-        id: _nextId(source.id),
-        name: '${source.name} (копия)',
-      ),
+      source.copyWith(id: _nextId(source.id), name: '${source.name} (копия)'),
     );
   }
 
@@ -209,6 +213,15 @@ class CharacterRepository extends ChangeNotifier {
     return null;
   }
 
+  /// Update an owned character in-place and persist the change.
+  void updateOwned(Character updated) {
+    final index = _ownedCharacters.indexWhere((c) => c.id == updated.id);
+    if (index < 0) return;
+    _ownedCharacters[index] = updated;
+    notifyListeners();
+    unawaited(_persistOwnedCharacters());
+  }
+
   void _loadOwnedCharacters() {
     final rawJson = _prefs?.getString(_storageKey);
     if (rawJson == null || rawJson.isEmpty) {
@@ -224,9 +237,8 @@ class CharacterRepository extends ChangeNotifier {
       ..clear()
       ..addAll(
         decoded.map(
-          (entry) => Character.fromJson(
-            Map<String, Object?>.from(entry as Map),
-          ),
+          (entry) =>
+              Character.fromJson(Map<String, Object?>.from(entry as Map)),
         ),
       );
   }
@@ -239,7 +251,9 @@ class CharacterRepository extends ChangeNotifier {
 
     await prefs.setString(
       _storageKey,
-      jsonEncode(_ownedCharacters.map((character) => character.toJson()).toList()),
+      jsonEncode(
+        _ownedCharacters.map((character) => character.toJson()).toList(),
+      ),
     );
   }
 

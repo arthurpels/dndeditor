@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import '../models/character.dart';
 import '../repository/character_repository.dart';
 import 'character_sheet_screen.dart';
+import '../wizard/screens/wizard_flow_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -35,7 +36,7 @@ class HomeScreen extends StatelessWidget {
             ],
           ),
           floatingActionButton: FloatingActionButton.extended(
-            onPressed: repository.createDraftCharacter,
+            onPressed: () => _openWizard(context),
             icon: const Icon(Icons.add),
             label: const Text('Создать'),
           ),
@@ -50,7 +51,7 @@ class HomeScreen extends StatelessWidget {
               _SectionHeader(
                 title: 'Мои персонажи',
                 actionLabel: 'Добавить',
-                onAction: repository.createDraftCharacter,
+                onAction: () => _openWizard(context),
               ),
               const SizedBox(height: 12),
               if (repository.ownedCharacters.isEmpty)
@@ -131,6 +132,14 @@ class HomeScreen extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  void _openWizard(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const WizardFlowScreen(),
+      ),
     );
   }
 

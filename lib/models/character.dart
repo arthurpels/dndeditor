@@ -1,4 +1,5 @@
 import '../data/dnd_reference_data.dart';
+import '../data/game_data.dart';
 import '../rules/rules_engine.dart';
 import 'ability.dart';
 import 'skill.dart';
@@ -12,29 +13,44 @@ class Character {
     required this.id,
     required this.name,
     this.level = 1,
-    required this.raceId,
-    required this.classId,
+    String? raceId,
+    String? classId,
     this.backgroundId,
     this.abilityMethod = 'standard_array',
-    required this.baseAbilities,
+    Map<Ability, int>? baseAbilities,
     Set<Skill>? skillProficiencies,
     Set<Ability>? savingThrowProficiencies,
-    this.maxHp = 1,
+    int? maxHp,
     int? currentHp,
-    this.biography = '',
+    String? biography,
     DateTime? createdAt,
     DateTime? updatedAt,
-  })  : skillProficiencies = skillProficiencies ?? {},
-        savingThrowProficiencies = savingThrowProficiencies ?? {},
-        currentHp = currentHp ?? maxHp,
-        createdAt = createdAt ?? DateTime.now(),
-        updatedAt = updatedAt ?? DateTime.now();
+    String? race,
+    String? characterClass,
+    int? hitPoints,
+    int? maxHitPoints,
+    String? notes,
+  })  : raceId = _resolveRaceId(raceId, race),
+        classId = _resolveClassId(classId, characterClass),
+        baseAbilities = baseAbilities ?? _defaultBaseAbilities(),
+        skillProficiencies = skillProficiencies ?? <Skill>{},
+        savingThrowProficiencies = savingThrowProficiencies ?? <Ability>{},
+        maxHp = maxHp ?? maxHitPoints ?? hitPoints ?? 1,
+        currentHp = currentHp ?? hitPoints ?? maxHp ?? maxHitPoints ?? 1,
+        biography = biography ?? notes ?? '',
+        createdAt = createdAt,
+        updatedAt = updatedAt,
+        race = race ?? _displayRaceName(raceId, race),
+        characterClass = characterClass ?? _displayClassName(classId, characterClass),
+        hitPoints = hitPoints ?? currentHp ?? maxHp ?? maxHitPoints ?? 1,
+        maxHitPoints = maxHitPoints ?? maxHp ?? hitPoints ?? currentHp ?? 1,
+        notes = notes ?? biography ?? '';
 
   String id;
   String name;
   int level;
-  String raceId;
-  String classId;
+  String? raceId;
+  String? classId;
   String? backgroundId;
 
   /// How ability scores were generated: standard_array | point_buy | roll.
@@ -49,8 +65,19 @@ class Character {
   int maxHp;
   int currentHp;
   String biography;
-  DateTime createdAt;
-  DateTime updatedAt;
+  DateTime? createdAt;
+  DateTime? updatedAt;
+
+  // Legacy compatibility fields.
+  String race;
+  String characterClass;
+  int hitPoints;
+  int maxHitPoints;
+  String notes;
+
+  String get _effectiveRaceId => raceId ?? _resolveRaceId(race, null) ?? 'human';
+  String get _effectiveClassId =>
+      classId ?? _resolveClassId(characterClass, null) ?? 'fighter';
 
   // ---------------------------------------------------------------------------
   // String-based computed getters (used by Dev C's character sheet UI)
@@ -69,7 +96,7 @@ class Character {
       baseAbilities[Ability.fromCode(abilityId.toLowerCase())] ?? 10;
 
   int totalScore(String abilityId) =>
-      baseScore(abilityId) + RulesEngine.raceBonus(raceId, abilityId);
+      baseScore(abilityId) + RulesEngine.raceBonus(_effectiveRaceId, abilityId);
 
   int modifierFor(String abilityId) =>
       RulesEngine.modifier(totalScore(abilityId));
@@ -90,8 +117,8 @@ class Character {
   int get armorClass => 10 + modifierFor('DEX');
   int get initiative => modifierFor('DEX');
   int get passivePerception => 10 + skillValue('Perception');
-  int get speed => RulesEngine.raceSpeed(raceId);
-  int get hitDie => RulesEngine.hitDieForClass(classId);
+  int get speed => RulesEngine.raceSpeed(_effectiveRaceId);
+  int get hitDie => RulesEngine.hitDieForClass(_effectiveClassId);
 
   Set<String> get backgroundSkillProficiencies =>
       backgroundId != null
@@ -219,8 +246,13 @@ class Character {
         'maxHp': maxHp,
         'currentHp': currentHp,
         'biography': biography,
-        'createdAt': createdAt.toIso8601String(),
-        'updatedAt': updatedAt.toIso8601String(),
+        'createdAt': createdAt?.toIso8601String(),
+        'updatedAt': updatedAt?.toIso8601String(),
+        'race': race,
+        'characterClass': characterClass,
+        'hitPoints': hitPoints,
+        'maxHitPoints': maxHitPoints,
+        'notes': notes,
       };
 
   factory Character.fromJson(Map<String, Object?> json) {
@@ -242,12 +274,53 @@ class Character {
     // Full format (branch-a / our schema).
     final raw =
         (json['baseAbilities'] as Map?)?.cast<String, dynamic>() ?? const {};
+    final isModern = json.containsKey('raceId') ||
+        json.containsKey('classId') ||
+        json.containsKey('baseAbilities');
+
+    if (isModern) {
+      return Character(
+        id: json['id'] as String,
+        name: json['name'] as String? ?? 'Безымянный',
+        level: (json['level'] as num?)?.toInt() ?? 1,
+        raceId: json['raceId'] as String?,
+        classId: json['classId'] as String?,
+        backgroundId: json['backgroundId'] as String?,
+        abilityMethod: json['abilityMethod'] as String? ?? 'standard_array',
+        baseAbilities: {
+          for (final a in Ability.values)
+            a: (raw[a.code] as num?)?.toInt() ?? 10,
+        },
+        skillProficiencies:
+            ((json['skillProficiencies'] as List?) ?? const [])
+                .map((e) => Skill.fromName(e as String))
+                .toSet(),
+        savingThrowProficiencies:
+            ((json['savingThrowProficiencies'] as List?) ?? const [])
+                .map((e) => Ability.fromCode(e as String))
+                .toSet(),
+        maxHp: (json['maxHp'] as num?)?.toInt() ??
+            (json['maxHitPoints'] as num?)?.toInt(),
+        currentHp: (json['currentHp'] as num?)?.toInt() ??
+            (json['hitPoints'] as num?)?.toInt(),
+        biography:
+            json['biography'] as String? ?? json['notes'] as String? ?? '',
+        createdAt: DateTime.tryParse(json['createdAt'] as String? ?? ''),
+        updatedAt: DateTime.tryParse(json['updatedAt'] as String? ?? ''),
+        race: json['race'] as String?,
+        characterClass: json['characterClass'] as String?,
+        hitPoints: (json['hitPoints'] as num?)?.toInt(),
+        maxHitPoints: (json['maxHitPoints'] as num?)?.toInt(),
+        notes: json['notes'] as String?,
+      );
+    }
+
     return Character(
       id: json['id'] as String,
       name: json['name'] as String? ?? 'Безымянный',
       level: (json['level'] as num?)?.toInt() ?? 1,
-      raceId: json['raceId'] as String,
-      classId: json['classId'] as String,
+      raceId: json['raceId'] as String?,
+      classId: json['classId'] as String?,
       backgroundId: json['backgroundId'] as String?,
       abilityMethod: json['abilityMethod'] as String? ?? 'standard_array',
       baseAbilities: {
@@ -264,9 +337,64 @@ class Character {
               .toSet(),
       maxHp: (json['maxHp'] as num?)?.toInt() ?? 1,
       currentHp: (json['currentHp'] as num?)?.toInt(),
-      biography: json['biography'] as String? ?? '',
+      biography: json['biography'] as String? ?? json['notes'] as String? ?? '',
       createdAt: DateTime.tryParse(json['createdAt'] as String? ?? ''),
       updatedAt: DateTime.tryParse(json['updatedAt'] as String? ?? ''),
+      race: json['race'] as String?,
+      characterClass: json['characterClass'] as String?,
+      hitPoints: (json['hitPoints'] as num?)?.toInt(),
+      maxHitPoints: (json['maxHitPoints'] as num?)?.toInt(),
+      notes: json['notes'] as String?,
     );
+  }
+
+  static Map<Ability, int> _defaultBaseAbilities() => {
+        for (final a in Ability.values) a: 10,
+      };
+
+  static String? _resolveRaceId(String? raceId, String? race) {
+    if (raceId != null && raceId.trim().isNotEmpty) {
+      return raceId;
+    }
+    return _findIdByName(race, GameData.races);
+  }
+
+  static String? _resolveClassId(String? classId, String? characterClass) {
+    if (classId != null && classId.trim().isNotEmpty) {
+      return classId;
+    }
+    return _findIdByName(characterClass, GameData.classes);
+  }
+
+  static String _displayRaceName(String? raceId, String? race) {
+    if (race != null && race.trim().isNotEmpty) {
+      return race;
+    }
+    return GameData.raceById(raceId)?.name ?? raceId ?? 'Human';
+  }
+
+  static String _displayClassName(String? classId, String? characterClass) {
+    if (characterClass != null && characterClass.trim().isNotEmpty) {
+      return characterClass;
+    }
+    return GameData.classById(classId)?.name ?? classId ?? 'Fighter';
+  }
+
+  static String? _findIdByName(
+    String? value,
+    Iterable<dynamic> options,
+  ) {
+    final normalized = value?.trim().toLowerCase();
+    if (normalized == null || normalized.isEmpty) {
+      return null;
+    }
+    for (final option in options) {
+      final id = option.id as String;
+      final name = option.name as String;
+      if (id.toLowerCase() == normalized || name.toLowerCase() == normalized) {
+        return id;
+      }
+    }
+    return normalized;
   }
 }
