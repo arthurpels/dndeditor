@@ -39,12 +39,7 @@ class Character {
         currentHp = currentHp ?? hitPoints ?? maxHp ?? maxHitPoints ?? 1,
         biography = biography ?? notes ?? '',
         createdAt = createdAt,
-        updatedAt = updatedAt,
-        race = race ?? _displayRaceName(raceId, race),
-        characterClass = characterClass ?? _displayClassName(classId, characterClass),
-        hitPoints = hitPoints ?? currentHp ?? maxHp ?? maxHitPoints ?? 1,
-        maxHitPoints = maxHitPoints ?? maxHp ?? hitPoints ?? currentHp ?? 1,
-        notes = notes ?? biography ?? '';
+        updatedAt = updatedAt;
 
   String id;
   String name;
@@ -68,16 +63,16 @@ class Character {
   DateTime? createdAt;
   DateTime? updatedAt;
 
-  // Legacy compatibility fields.
-  String race;
-  String characterClass;
-  int hitPoints;
-  int maxHitPoints;
-  String notes;
+  String get _effectiveRaceId => raceId ?? 'human';
+  String get _effectiveClassId => classId ?? 'fighter';
 
-  String get _effectiveRaceId => raceId ?? _resolveRaceId(race, null) ?? 'human';
-  String get _effectiveClassId =>
-      classId ?? _resolveClassId(characterClass, null) ?? 'fighter';
+  // Legacy compatibility getters used by older UI code and imported JSON.
+  String get race => GameData.raceById(_effectiveRaceId)?.name ?? _effectiveRaceId;
+  String get characterClass =>
+      GameData.classById(_effectiveClassId)?.name ?? _effectiveClassId;
+  int get hitPoints => currentHp;
+  int get maxHitPoints => maxHp;
+  String get notes => biography;
 
   // ---------------------------------------------------------------------------
   // String-based computed getters (used by Dev C's character sheet UI)
@@ -288,11 +283,6 @@ class Character {
             json['biography'] as String? ?? json['notes'] as String? ?? '',
         createdAt: DateTime.tryParse(json['createdAt'] as String? ?? ''),
         updatedAt: DateTime.tryParse(json['updatedAt'] as String? ?? ''),
-        race: json['race'] as String?,
-        characterClass: json['characterClass'] as String?,
-        hitPoints: (json['hitPoints'] as num?)?.toInt(),
-        maxHitPoints: (json['maxHitPoints'] as num?)?.toInt(),
-        notes: json['notes'] as String?,
       );
     }
 
@@ -321,11 +311,6 @@ class Character {
       biography: json['biography'] as String? ?? json['notes'] as String? ?? '',
       createdAt: DateTime.tryParse(json['createdAt'] as String? ?? ''),
       updatedAt: DateTime.tryParse(json['updatedAt'] as String? ?? ''),
-      race: json['race'] as String?,
-      characterClass: json['characterClass'] as String?,
-      hitPoints: (json['hitPoints'] as num?)?.toInt(),
-      maxHitPoints: (json['maxHitPoints'] as num?)?.toInt(),
-      notes: json['notes'] as String?,
     );
   }
 
@@ -345,20 +330,6 @@ class Character {
       return classId;
     }
     return _findIdByName(characterClass, GameData.classes);
-  }
-
-  static String _displayRaceName(String? raceId, String? race) {
-    if (race != null && race.trim().isNotEmpty) {
-      return race;
-    }
-    return GameData.raceById(raceId)?.name ?? raceId ?? 'Human';
-  }
-
-  static String _displayClassName(String? classId, String? characterClass) {
-    if (characterClass != null && characterClass.trim().isNotEmpty) {
-      return characterClass;
-    }
-    return GameData.classById(classId)?.name ?? classId ?? 'Fighter';
   }
 
   static String? _findIdByName(

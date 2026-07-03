@@ -86,8 +86,9 @@ class _AbilityPoolRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final options = controller.availableValuesFor(ability);
-    final value = controller.poolValueFor(ability);
+    final options = controller.availablePoolEntriesFor(ability);
+    final entry = controller.poolEntryFor(ability);
+    final value = entry?.value;
     final base = value ?? 8;
     final raceBonus = controller.selectedRace?.bonusFor(ability) ?? 0;
     final total = base + raceBonus;
@@ -99,15 +100,22 @@ class _AbilityPoolRow extends StatelessWidget {
           SizedBox(width: 56, child: Text(ability.shortCode, style: const TextStyle(fontWeight: FontWeight.bold))),
           SizedBox(
             width: 100,
-            child: DropdownButton<int?>(
-              value: value,
+            child: DropdownButton<AbilityPoolEntry?>(
+              value: entry,
               hint: const Text('—'),
               isExpanded: true,
               items: [
-                const DropdownMenuItem<int?>(value: null, child: Text('—')),
-                for (final v in options) DropdownMenuItem<int?>(value: v, child: Text('$v')),
+                const DropdownMenuItem<AbilityPoolEntry?>(
+                  value: null,
+                  child: Text('—'),
+                ),
+                for (final option in options)
+                  DropdownMenuItem<AbilityPoolEntry?>(
+                    value: option,
+                    child: Text('${option.value}'),
+                  ),
               ],
-              onChanged: (v) => controller.assignPoolValue(ability, v),
+              onChanged: (selected) => controller.assignPoolEntry(ability, selected),
             ),
           ),
           const SizedBox(width: 16),

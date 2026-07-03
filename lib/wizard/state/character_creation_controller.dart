@@ -7,6 +7,22 @@ import '../mock_contract/class_data.dart';
 import '../mock_contract/race.dart';
 import '../mock_contract/rules_engine.dart';
 
+class AbilityPoolEntry {
+  const AbilityPoolEntry({
+    required this.id,
+    required this.value,
+  });
+
+  final String id;
+  final int value;
+
+  @override
+  bool operator ==(Object other) => other is AbilityPoolEntry && other.id == id;
+
+  @override
+  int get hashCode => id.hashCode;
+}
+
 /// Шаги мастера — экраны 2–5 PRD (Основа / Характеристики / Навыки / Обзор).
 enum WizardStep { basics, abilities, skills, review }
 
@@ -63,54 +79,94 @@ class CharacterCreationController extends ChangeNotifier {
   AbilityMethod get abilityMethod => _abilityMethod;
 
   /// Значения, ещё не распределённые по характеристикам (Standard Array / 4d6).
-  final Map<AbilityScore, int?> _poolAssignment = {for (final a in AbilityScore.values) a: null};
-  List<int> _rolledPool = const [];
+  final Map<AbilityScore, String?> _poolAssignmentId = {
+    for (final a in AbilityScore.values) a: null,
+  };
+  final List<AbilityPoolEntry> _standardPoolEntries = [
+    for (var i = 0; i < standardArrayValues.length; i++)
+      AbilityPoolEntry(id: 'standard-$i', value: standardArrayValues[i]),
+  ];
+  List<AbilityPoolEntry> _rolledPoolEntries = const [];
 
   final Map<AbilityScore, int> _pointBuyScores = {for (final a in AbilityScore.values) a: pointBuyMinScore};
 
   void setAbilityMethod(AbilityMethod method) {
     _abilityMethod = method;
     for (final a in AbilityScore.values) {
-      _poolAssignment[a] = null;
+      _poolAssignmentId[a] = null;
     }
-    _rolledPool = const [];
+    _rolledPoolEntries = const [];
     for (final a in AbilityScore.values) {
       _pointBuyScores[a] = pointBuyMinScore;
     }
     notifyListeners();
   }
 
-  List<int> get currentPool =>
-      _abilityMethod == AbilityMethod.standardArray ? standardArrayValues : _rolledPool;
+  List<AbilityPoolEntry> get _currentPoolEntries =>
+      _abilityMethod == AbilityMethod.standardArray ? _standardPoolEntries : _rolledPoolEntries;
+
+  List<String> get currentPool => _currentPoolEntries
+      .where((entry) => !_assignedIds.contains(entry.id))
+      .map((entry) => entry.value.toString())
+      .toList();
 
   void rollAbilityPoolValues() {
-    _rolledPool = rollAbilityPool();
+    final rolledValues = rollAbilityPool();
+    _rolledPoolEntries = [
+      for (var i = 0; i < rolledValues.length; i++)
+        AbilityPoolEntry(id: 'rolled-$i', value: rolledValues[i]),
+    ];
     for (final a in AbilityScore.values) {
-      _poolAssignment[a] = null;
+      _poolAssignmentId[a] = null;
     }
     notifyListeners();
   }
 
   /// Значения пула, ещё доступные для назначения этой характеристике
   /// (плюс уже назначенное ей значение, чтобы dropdown мог его показать).
-  List<int> availableValuesFor(AbilityScore ability) {
-    final pool = List<int>.from(currentPool);
-    for (final entry in _poolAssignment.entries) {
-      if (entry.key != ability && entry.value != null) {
-        pool.remove(entry.value);
-      }
-    }
-    final own = _poolAssignment[ability];
-    final result = List<int>.from(pool);
-    if (own != null) result.add(own);
-    result.sort((a, b) => b.compareTo(a));
-    return result;
+  List<AbilityPoolEntry> availablePoolEntriesFor(AbilityScore ability) {
+    final ownId = _poolAssignmentId[ability];
+    return _currentPoolEntries.where((entry) {
+      final assignedElsewhere = _poolAssignmentId.entries.any(
+        (pair) => pair.key != ability && pair.value == entry.id,
+      );
+      return !assignedElsewhere || entry.id == ownId;
+    }).toList();
   }
 
-  int? poolValueFor(AbilityScore ability) => _poolAssignment[ability];
+  List<int> availableValuesFor(AbilityScore ability) =>
+      availablePoolEntriesFor(ability).map((entry) => entry.value).toList();
+
+  AbilityPoolEntry? poolEntryFor(AbilityScore ability) {
+    final id = _poolAssignmentId[ability];
+    if (id == null) {
+      return null;
+    }
+    for (final entry in _currentPoolEntries) {
+      if (entry.id == id) {
+        return entry;
+      }
+    }
+    return null;
+  }
+
+  int? poolValueFor(AbilityScore ability) => poolEntryFor(ability)?.value;
 
   void assignPoolValue(AbilityScore ability, int? value) {
-    _poolAssignment[ability] = value;
+    if (value == null) {
+      assignPoolEntry(ability, null);
+      return;
+    }
+
+    final entry = availablePoolEntriesFor(ability).firstWhere(
+      (candidate) => candidate.value == value,
+      orElse: () => AbilityPoolEntry(id: 'missing-$value', value: value),
+    );
+    assignPoolEntry(ability, entry.id.startsWith('missing-') ? null : entry);
+  }
+
+  void assignPoolEntry(AbilityScore ability, AbilityPoolEntry? entry) {
+    _poolAssignmentId[ability] = entry?.id;
     notifyListeners();
   }
 
@@ -134,7 +190,10 @@ class CharacterCreationController extends ChangeNotifier {
     if (_abilityMethod == AbilityMethod.pointBuy) {
       return Map.unmodifiable(_pointBuyScores);
     }
-    return {for (final a in AbilityScore.values) a: _poolAssignment[a] ?? pointBuyMinScore};
+    return {
+      for (final a in AbilityScore.values)
+        a: poolValueFor(a) ?? pointBuyMinScore,
+    };
   }
 
   Map<AbilityScore, int> get finalAbilities {
@@ -147,8 +206,8 @@ class CharacterCreationController extends ChangeNotifier {
 
   bool get canProceedFromAbilities {
     if (_abilityMethod == AbilityMethod.pointBuy) return true;
-    if (currentPool.isEmpty) return false;
-    return AbilityScore.values.every((a) => _poolAssignment[a] != null);
+    return _currentPoolEntries.isNotEmpty &&
+        AbilityScore.values.every((a) => _poolAssignmentId[a] != null);
   }
 
   // --- Шаг 3: Навыки -----------------------------------------------------
@@ -198,6 +257,9 @@ class CharacterCreationController extends ChangeNotifier {
     if (cls == null) return 0;
     return maxHpLevel1(hitDie: cls.hitDie, conModifier: modifierFor(AbilityScore.constitution));
   }
+
+  Set<String> get _assignedIds =>
+      _poolAssignmentId.values.whereType<String>().toSet();
 
   CharacterDraft buildDraft() {
     return CharacterDraft(
