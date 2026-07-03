@@ -1,0 +1,10 @@
+﻿{
+  "id": "ready-mila",
+  "name": "Мила",
+  "race": "Halfling",
+  "characterClass": "Rogue",
+  "level": 1,
+  "hitPoints": 9,
+  "maxHitPoints": 9,
+  "notes": "Тихая, быстрая, очень внимательная к деталям."
+}

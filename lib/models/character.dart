@@ -57,13 +57,11 @@ class Character {
   // dndSkills and Skill.values share the same order, enabling index-based lookup.
   // ---------------------------------------------------------------------------
 
-  /// All skill proficiency names as English strings ("Athletics", "Stealth", …).
   Set<String> get _skillNames =>
       skillProficiencies
           .map((s) => dndSkills[Skill.values.indexOf(s)])
           .toSet();
 
-  /// All saving throw proficiency abbreviations ("STR", "CON", …).
   Set<String> get _saveAbbrs =>
       savingThrowProficiencies.map((a) => a.abbr).toSet();
 
@@ -104,7 +102,26 @@ class Character {
   static const List<String> skills = dndSkills;
 
   // ---------------------------------------------------------------------------
-  // Sample character for UI development and testing
+  // Aliases for Dev D's home screen and character sheet display
+  // ---------------------------------------------------------------------------
+
+  /// Display name for the race (maps to raceId for now).
+  String get race => raceId;
+
+  /// Display name for the class (maps to classId).
+  String get characterClass => classId;
+
+  /// Current hit points alias.
+  int get hitPoints => currentHp;
+
+  /// Maximum hit points alias.
+  int get maxHitPoints => maxHp;
+
+  /// Short notes alias for biography.
+  String get notes => biography;
+
+  // ---------------------------------------------------------------------------
+  // Factories
   // ---------------------------------------------------------------------------
 
   factory Character.sample() => Character(
@@ -130,6 +147,17 @@ class Character {
         biography: 'Дисциплинированный фронтовик, привыкший держать строй и прикрывать отряд.',
         createdAt: DateTime.utc(2026, 7, 3),
         updatedAt: DateTime.utc(2026, 7, 3),
+      );
+
+  /// Blank draft character for Dev D's repository (create-new flow).
+  static Character blank({required String id}) => Character(
+        id: id,
+        name: 'Новый персонаж',
+        raceId: 'human',
+        classId: 'fighter',
+        baseAbilities: {for (final a in Ability.values) a: 10},
+        maxHp: 10,
+        currentHp: 10,
       );
 
   // ---------------------------------------------------------------------------
@@ -195,7 +223,23 @@ class Character {
         'updatedAt': updatedAt.toIso8601String(),
       };
 
-  factory Character.fromJson(Map<String, dynamic> json) {
+  factory Character.fromJson(Map<String, Object?> json) {
+    // Dev D's simplified asset format: has 'race' key instead of 'raceId'.
+    if (json.containsKey('race') && !json.containsKey('raceId')) {
+      return Character(
+        id: json['id'] as String,
+        name: json['name'] as String? ?? 'Безымянный',
+        level: (json['level'] as num?)?.toInt() ?? 1,
+        raceId: (json['race'] as String? ?? 'human').toLowerCase(),
+        classId: (json['characterClass'] as String? ?? 'fighter').toLowerCase(),
+        baseAbilities: {for (final a in Ability.values) a: 10},
+        maxHp: (json['maxHitPoints'] as num?)?.toInt() ?? 1,
+        currentHp: (json['hitPoints'] as num?)?.toInt(),
+        biography: json['notes'] as String? ?? '',
+      );
+    }
+
+    // Full format (branch-a / our schema).
     final raw =
         (json['baseAbilities'] as Map?)?.cast<String, dynamic>() ?? const {};
     return Character(

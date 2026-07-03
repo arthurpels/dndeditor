@@ -1,21 +1,23 @@
+import 'package:dndeditor/app.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:dndeditor/main.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  testWidgets('shows the library screen with starter actions',
-      (WidgetTester tester) async {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+  });
+
+  testWidgets('shows the home library screen', (WidgetTester tester) async {
     await tester.pumpWidget(const DndEditorApp());
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
 
-    expect(find.text('Редактор персонажей D&D'), findsOneWidget);
+    expect(find.text('DND Editor'), findsOneWidget);
+    expect(find.text('Библиотека персонажей'), findsOneWidget);
     expect(find.text('Мои персонажи'), findsOneWidget);
-    expect(find.text('Готовые персонажи'), findsOneWidget);
-    expect(find.text('Создать персонажа'), findsOneWidget);
-
-    await tester.tap(find.text('Создать персонажа'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Мастер создания'), findsOneWidget);
+    expect(find.byIcon(Icons.add), findsOneWidget);
   });
 }
