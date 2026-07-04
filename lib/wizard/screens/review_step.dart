@@ -218,6 +218,8 @@ class _ReviewStepState extends State<ReviewStep> {
       level: draft.level,
       raceId: draft.raceId,
       classId: draft.classId,
+      race: controller.selectedRace?.nameRu,
+      characterClass: controller.selectedClass?.nameRu,
       backgroundId: draft.backgroundId,
       abilityMethod: abilityMethodStr,
       baseAbilities: baseAbilities,

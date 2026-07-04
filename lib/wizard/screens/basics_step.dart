@@ -29,23 +29,25 @@ class BasicsStep extends StatelessWidget {
           const SizedBox(height: 24),
           _SelectableSection<RaceOption>(
             title: 'Раса',
-            options: mockRaces,
+            options: controller.allRaces,
             selectedId: controller.raceId,
             idOf: (r) => r.id,
             labelOf: (r) => r.nameRu,
             descriptionOf: (r) => r.description,
+            isHomebrew: (r) => r.id.startsWith('hb_'),
             onSelected: controller.selectRace,
           ),
           const SizedBox(height: 24),
           _SelectableSection<ClassOption>(
             title: 'Класс',
-            options: mockClasses,
+            options: controller.allClasses,
             selectedId: controller.classId,
             idOf: (c) => c.id,
             labelOf: (c) => c.nameRu,
             descriptionOf: (c) =>
                 'Кость хитов d${c.hitDie}, спасброски ${c.savingThrows.map((a) => a.shortCode).join('/')}, '
                 'навыков на выбор: ${c.skillChoiceCount}.',
+            isHomebrew: (c) => c.id.startsWith('hb_'),
             onSelected: controller.selectClass,
           ),
           const SizedBox(height: 24),
@@ -56,6 +58,7 @@ class BasicsStep extends StatelessWidget {
             idOf: (b) => b.id,
             labelOf: (b) => b.nameRu,
             descriptionOf: (b) => 'Даёт владение: ${b.skillIds.join(', ')}.',
+            isHomebrew: (_) => false,
             onSelected: controller.selectBackground,
           ),
         ],
@@ -71,6 +74,7 @@ class _SelectableSection<T> extends StatelessWidget {
   final String Function(T) idOf;
   final String Function(T) labelOf;
   final String Function(T) descriptionOf;
+  final bool Function(T) isHomebrew;
   final ValueChanged<String> onSelected;
 
   const _SelectableSection({
@@ -80,6 +84,7 @@ class _SelectableSection<T> extends StatelessWidget {
     required this.idOf,
     required this.labelOf,
     required this.descriptionOf,
+    required this.isHomebrew,
     required this.onSelected,
   });
 
@@ -104,7 +109,16 @@ class _SelectableSection<T> extends StatelessWidget {
           children: [
             for (final option in options)
               ChoiceChip(
-                label: Text(labelOf(option)),
+                label: isHomebrew(option)
+                    ? Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(labelOf(option)),
+                          const SizedBox(width: 4),
+                          const Icon(Icons.extension, size: 12),
+                        ],
+                      )
+                    : Text(labelOf(option)),
                 selected: idOf(option) == selectedId,
                 onSelected: (_) => onSelected(idOf(option)),
               ),
