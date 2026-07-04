@@ -39,7 +39,9 @@ class Character {
         currentHp = currentHp ?? hitPoints ?? maxHp ?? maxHitPoints ?? 1,
         biography = biography ?? notes ?? '',
         createdAt = createdAt,
-        updatedAt = updatedAt;
+        updatedAt = updatedAt,
+        raceName = race,
+        className = characterClass;
 
   String id;
   String name;
@@ -47,6 +49,12 @@ class Character {
   String? raceId;
   String? classId;
   String? backgroundId;
+
+  /// Custom display name for race/class, used when the id is not a PHB entry
+  /// (e.g. homebrew). Null for standard content — the getter falls back to
+  /// GameData lookup by id.
+  String? raceName;
+  String? className;
 
   /// How ability scores were generated: standard_array | point_buy | roll.
   String abilityMethod;
@@ -67,9 +75,13 @@ class Character {
   String get _effectiveClassId => classId ?? 'fighter';
 
   // Legacy compatibility getters used by older UI code and imported JSON.
-  String get race => GameData.raceById(_effectiveRaceId)?.name ?? _effectiveRaceId;
+  // Prefer an explicit custom name (homebrew) before the PHB GameData lookup.
+  String get race =>
+      raceName ?? GameData.raceById(_effectiveRaceId)?.name ?? _effectiveRaceId;
   String get characterClass =>
-      GameData.classById(_effectiveClassId)?.name ?? _effectiveClassId;
+      className ??
+      GameData.classById(_effectiveClassId)?.name ??
+      _effectiveClassId;
   int get hitPoints => currentHp;
   int get maxHitPoints => maxHp;
   String get notes => biography;
@@ -285,6 +297,8 @@ class Character {
             json['biography'] as String? ?? json['notes'] as String? ?? '',
         createdAt: DateTime.tryParse(json['createdAt'] as String? ?? ''),
         updatedAt: DateTime.tryParse(json['updatedAt'] as String? ?? ''),
+        race: json['race'] as String?,
+        characterClass: json['characterClass'] as String?,
       );
     }
 
@@ -313,6 +327,8 @@ class Character {
       biography: json['biography'] as String? ?? json['notes'] as String? ?? '',
       createdAt: DateTime.tryParse(json['createdAt'] as String? ?? ''),
       updatedAt: DateTime.tryParse(json['updatedAt'] as String? ?? ''),
+      race: json['race'] as String?,
+      characterClass: json['characterClass'] as String?,
     );
   }
 
