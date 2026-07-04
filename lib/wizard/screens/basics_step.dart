@@ -21,6 +21,11 @@ class BasicsStep extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const WizardHintCard(
+            title: 'Подсказка',
+            body: 'Сначала заполни имя, затем выбери расу, класс и предысторию. Эти поля влияют на бонусы и навыки.',
+          ),
+          const SizedBox(height: 16),
           TextFormField(
             initialValue: controller.name,
             decoration: const InputDecoration(labelText: 'Имя персонажа'),

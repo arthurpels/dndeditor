@@ -57,7 +57,6 @@ class _CharacterSheetScreenState extends State<CharacterSheetScreen> {
       _currentHp = _currentHp.clamp(0, newMaxHp);
       _character = _character.copyWith(currentHp: _currentHp);
     });
-    _persist();
   }
 
   void _adjustHp(int delta) {
@@ -65,7 +64,6 @@ class _CharacterSheetScreenState extends State<CharacterSheetScreen> {
       _currentHp = (_currentHp + delta).clamp(0, _character.maxHp);
       _character = _character.copyWith(currentHp: _currentHp, updatedAt: DateTime.now());
     });
-    _persist();
   }
 
   void _resetHp() {
@@ -73,7 +71,6 @@ class _CharacterSheetScreenState extends State<CharacterSheetScreen> {
       _currentHp = _character.maxHp;
       _character = _character.copyWith(currentHp: _currentHp, updatedAt: DateTime.now());
     });
-    _persist();
   }
 
   void _saveNotes() {

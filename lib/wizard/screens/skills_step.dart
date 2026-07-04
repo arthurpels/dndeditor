@@ -33,6 +33,11 @@ class SkillsStep extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const WizardHintCard(
+            title: 'Как работает выбор',
+            body: 'Навыки предыстории уже выбраны и не расходуют лимит класса. Остальные навыки бери только из разрешённого списка и не больше указанного количества.',
+          ),
+          const SizedBox(height: 16),
           Text(
             'Выбрано ${controller.selectedClassSkills.length} из ${controller.classSkillChoiceCount} '
             '(навыки предыстории отмечены отдельно и не расходуют лимит)',
