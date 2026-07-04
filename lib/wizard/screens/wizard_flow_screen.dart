@@ -79,7 +79,7 @@ RaceOption _toRaceOption(HomebrewRace r) {
   }
   return RaceOption(
     id: r.id,
-    nameRu: '${r.name} ✦',
+    nameRu: r.name,
     abilityBonuses: bonuses,
     speed: r.speed,
     description: r.description,
@@ -98,7 +98,7 @@ ClassOption _toClassOption(HomebrewClass c) {
   }
   return ClassOption(
     id: c.id,
-    nameRu: '${c.name} ✦',
+    nameRu: c.name,
     hitDie: c.hitDie,
     savingThrows: saves,
     skillChoiceCount: c.skillChoiceCount,
