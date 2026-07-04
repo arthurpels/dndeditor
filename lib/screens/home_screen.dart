@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../homebrew/screens/homebrew_screen.dart';
 import '../models/character.dart';
 import '../repository/character_repository.dart';
 import 'character_sheet_screen.dart';
@@ -23,6 +24,15 @@ class HomeScreen extends StatelessWidget {
           appBar: AppBar(
             title: const Text('DND Editor'),
             actions: [
+              IconButton(
+                tooltip: 'Хоумбрю',
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const HomebrewScreen(),
+                  ),
+                ),
+                icon: const Icon(Icons.extension_outlined),
+              ),
               IconButton(
                 tooltip: 'Импорт из файла',
                 onPressed: () => _importFromFile(context, repository),

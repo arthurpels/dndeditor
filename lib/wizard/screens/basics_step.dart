@@ -29,7 +29,7 @@ class BasicsStep extends StatelessWidget {
           const SizedBox(height: 24),
           _SelectableSection<RaceOption>(
             title: 'Раса',
-            options: mockRaces,
+            options: controller.allRaces,
             selectedId: controller.raceId,
             idOf: (r) => r.id,
             labelOf: (r) => r.nameRu,
@@ -39,7 +39,7 @@ class BasicsStep extends StatelessWidget {
           const SizedBox(height: 24),
           _SelectableSection<ClassOption>(
             title: 'Класс',
-            options: mockClasses,
+            options: controller.allClasses,
             selectedId: controller.classId,
             idOf: (c) => c.id,
             labelOf: (c) => c.nameRu,
