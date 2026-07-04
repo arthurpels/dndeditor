@@ -38,11 +38,9 @@ class HomebrewScreen extends StatelessWidget {
 class _AddFab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    final tabIndex = DefaultTabController.of(context).index;
-
     return ListenableBuilder(
       listenable: DefaultTabController.of(context),
-      builder: (context, _) {
+      builder: (context, child) {
         final isRaceTab = DefaultTabController.of(context).index == 0;
         return FloatingActionButton.extended(
           onPressed: () => Navigator.of(context).push(
