@@ -190,6 +190,8 @@ class Character {
         level: level ?? this.level,
         raceId: raceId ?? this.raceId,
         classId: classId ?? this.classId,
+        race: this.race,
+        characterClass: this.characterClass,
         backgroundId: backgroundId ?? this.backgroundId,
         abilityMethod: abilityMethod ?? this.abilityMethod,
         baseAbilities:
