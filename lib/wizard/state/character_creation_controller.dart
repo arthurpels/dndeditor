@@ -31,6 +31,18 @@ enum WizardStep { basics, abilities, skills, review }
 /// Держит весь черновик персонажа, пока он собирается по шагам, и умеет
 /// проверять, можно ли перейти к следующему шагу (валидация из FR4/FR8).
 class CharacterCreationController extends ChangeNotifier {
+  CharacterCreationController({
+    List<RaceOption> extraRaces = const [],
+    List<ClassOption> extraClasses = const [],
+  })  : _extraRaces = List<RaceOption>.from(extraRaces),
+        _extraClasses = List<ClassOption>.from(extraClasses);
+
+  final List<RaceOption> _extraRaces;
+  final List<ClassOption> _extraClasses;
+
+  List<RaceOption> get allRaces => [...mockRaces, ..._extraRaces];
+  List<ClassOption> get allClasses => [...mockClasses, ..._extraClasses];
+
   WizardStep _currentStep = WizardStep.basics;
   WizardStep get currentStep => _currentStep;
 
@@ -45,8 +57,21 @@ class CharacterCreationController extends ChangeNotifier {
   String? get classId => _classId;
   String? get backgroundId => _backgroundId;
 
-  RaceOption? get selectedRace => _raceId == null ? null : raceById(_raceId!);
-  ClassOption? get selectedClass => _classId == null ? null : classById(_classId!);
+  RaceOption? get selectedRace {
+    if (_raceId == null) return null;
+    for (final r in allRaces) {
+      if (r.id == _raceId) return r;
+    }
+    return null;
+  }
+
+  ClassOption? get selectedClass {
+    if (_classId == null) return null;
+    for (final c in allClasses) {
+      if (c.id == _classId) return c;
+    }
+    return null;
+  }
   BackgroundOption? get selectedBackground => _backgroundId == null ? null : backgroundById(_backgroundId!);
 
   void setName(String value) {
