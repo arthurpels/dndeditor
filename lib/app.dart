@@ -20,7 +20,7 @@ class _DndEditorAppState extends State<DndEditorApp> {
   void initState() {
     super.initState();
     _characters = CharacterRepository.seeded();
-    _homebrew = HomebrewRepository._empty();
+    _homebrew = HomebrewRepository.seeded();
     WidgetsBinding.instance.addPostFrameCallback((_) => _bootstrap());
   }
 

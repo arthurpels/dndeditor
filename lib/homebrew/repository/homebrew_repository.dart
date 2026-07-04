@@ -37,7 +37,7 @@ class HomebrewRepository extends ChangeNotifier {
   final List<HomebrewClass> _classes;
   SharedPreferences? _prefs;
 
-  factory HomebrewRepository._empty() =>
+  factory HomebrewRepository.seeded() =>
       HomebrewRepository._(races: [], classes: []);
 
   static Future<HomebrewRepository> bootstrap() async {
