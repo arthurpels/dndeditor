@@ -126,12 +126,18 @@ class ReviewStep extends StatelessWidget {
       AbilityMethod.rolled4d6 => 'roll',
     };
 
+    // nameRu может содержать ✦ для homebrew — убираем значок для хранения
+    final raceName = _stripBadge(controller.selectedRace?.nameRu);
+    final className = _stripBadge(controller.selectedClass?.nameRu);
+
     final character = Character(
       id: 'wizard',
       name: draft.name,
       level: draft.level,
       raceId: draft.raceId,
       classId: draft.classId,
+      race: raceName,
+      characterClass: className,
       backgroundId: draft.backgroundId,
       abilityMethod: abilityMethodStr,
       baseAbilities: baseAbilities,
@@ -145,6 +151,9 @@ class ReviewStep extends StatelessWidget {
     CharacterRepositoryScope.of(context).addToOwned(character);
     Navigator.of(context).pop();
   }
+
+  static String? _stripBadge(String? name) =>
+      name?.endsWith(' ✦') == true ? name!.substring(0, name.length - 2) : name;
 
   // 'animal_handling' → 'animalHandling'
   static String _toCamel(String snake) {
