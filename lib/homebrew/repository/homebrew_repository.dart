@@ -37,6 +37,9 @@ class HomebrewRepository extends ChangeNotifier {
   final List<HomebrewClass> _classes;
   SharedPreferences? _prefs;
 
+  factory HomebrewRepository._empty() =>
+      HomebrewRepository._(races: [], classes: []);
+
   static Future<HomebrewRepository> bootstrap() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -48,6 +51,21 @@ class HomebrewRepository extends ChangeNotifier {
       return repo;
     } catch (_) {
       return HomebrewRepository._(races: [], classes: []);
+    }
+  }
+
+  Future<void> loadPersistedState() async {
+    try {
+      _prefs = await SharedPreferences.getInstance();
+      _races
+        ..clear()
+        ..addAll(_decodeRaces(_prefs!.getString(_racesKey)));
+      _classes
+        ..clear()
+        ..addAll(_decodeClasses(_prefs!.getString(_classesKey)));
+      notifyListeners();
+    } catch (e) {
+      debugPrint('HomebrewRepository.loadPersistedState failed: $e');
     }
   }
 
