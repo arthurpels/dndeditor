@@ -5,18 +5,44 @@ import '../../models/ability.dart' as model;
 import '../../models/character.dart';
 import '../../models/skill.dart';
 import '../../repository/character_repository.dart';
+import '../../rules/biography_generator.dart';
 import '../mock_contract/ability.dart';
+import '../mock_contract/background.dart';
+import '../mock_contract/class_data.dart';
+import '../mock_contract/race.dart';
 import '../mock_contract/rules_engine.dart';
 import '../mock_contract/skill.dart';
 import '../state/character_creation_controller.dart';
 import '../widgets/wizard_step_scaffold.dart';
 
-class ReviewStep extends StatelessWidget {
+class ReviewStep extends StatefulWidget {
   const ReviewStep({super.key});
+
+  @override
+  State<ReviewStep> createState() => _ReviewStepState();
+}
+
+class _ReviewStepState extends State<ReviewStep> {
+  final _biographyController = TextEditingController();
+  BiographyTone _tone = BiographyTone.neutral;
+  String? _syncedBiography;
+
+  @override
+  void dispose() {
+    _biographyController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<CharacterCreationController>();
+
+    // Keep the field in sync when biography changes from outside typing
+    // (e.g. after generation), without clobbering the user's cursor otherwise.
+    if (_syncedBiography != controller.biography && _biographyController.text != controller.biography) {
+      _biographyController.text = controller.biography;
+      _syncedBiography = controller.biography;
+    }
 
     if (controller.selectedRace == null ||
         controller.selectedClass == null ||
@@ -89,11 +115,35 @@ class ReviewStep extends StatelessWidget {
           Text('Пассивное восприятие: ${passivePerception(perceptionValue)}'),
           const SizedBox(height: 20),
 
-          TextFormField(
-            initialValue: controller.biography,
+          Text('Биография', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final tone in BiographyTone.values)
+                ChoiceChip(
+                  label: Text(tone.labelRu),
+                  selected: _tone == tone,
+                  onSelected: (_) => setState(() => _tone = tone),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: () => _generateBiography(controller, race, cls, background, skillProficiencies),
+            icon: const Icon(Icons.auto_awesome_outlined),
+            label: const Text('Сгенерировать биографию'),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _biographyController,
             decoration: const InputDecoration(labelText: 'Заметки / биография'),
-            maxLines: 3,
-            onChanged: controller.setBiography,
+            maxLines: 4,
+            onChanged: (value) {
+              controller.setBiography(value);
+              _syncedBiography = value;
+            },
           ),
           const SizedBox(height: 24),
 
@@ -105,6 +155,42 @@ class ReviewStep extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  void _generateBiography(
+    CharacterCreationController controller,
+    RaceOption race,
+    ClassOption cls,
+    BackgroundOption background,
+    Set<String> skillProficiencies,
+  ) {
+    final finalAbilities = controller.finalAbilities;
+    var keyAbility = AbilityScore.strength;
+    for (final ability in AbilityScore.values) {
+      if ((finalAbilities[ability] ?? 0) > (finalAbilities[keyAbility] ?? 0)) {
+        keyAbility = ability;
+      }
+    }
+
+    final input = BiographyInput(
+      characterName: controller.name,
+      raceName: race.nameRu,
+      className: cls.nameRu,
+      backgroundName: background.nameRu,
+      skillNames: skillProficiencies
+          .toList()
+          .map((id) => skillById(id).nameRu)
+          .toList(),
+      keyAbilityLabel: keyAbility.labelRu,
+      keyAbilityScore: finalAbilities[keyAbility] ?? 10,
+    );
+
+    final generated = BiographyGenerator.generate(input, _tone);
+    controller.setBiography(generated);
+    setState(() {
+      _biographyController.text = generated;
+      _syncedBiography = generated;
+    });
   }
 
   void _save(BuildContext context, CharacterCreationController controller) {

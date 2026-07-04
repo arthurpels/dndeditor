@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../data/dnd_reference_data.dart';
+import '../data/game_data.dart';
+import '../models/ability.dart';
 import '../models/character.dart';
 import '../repository/character_repository.dart';
+import '../rules/biography_generator.dart';
 import '../rules/rules_engine.dart';
 
 /// Full character sheet screen (Экран 6 по PRD).
@@ -23,6 +26,7 @@ class _CharacterSheetScreenState extends State<CharacterSheetScreen> {
   late int _currentHp;
   late TextEditingController _notesController;
   bool _initialised = false;
+  BiographyTone _biographyTone = BiographyTone.neutral;
 
   CharacterRepository get _repository => CharacterRepositoryScope.of(context);
 
@@ -87,6 +91,30 @@ class _CharacterSheetScreenState extends State<CharacterSheetScreen> {
   }
 
   void _persist() => _repository.updateOwned(_character);
+
+  void _generateBiography() {
+    var keyAbilityId = Character.abilities.first;
+    for (final id in Character.abilities) {
+      if (_character.totalScore(id) > _character.totalScore(keyAbilityId)) {
+        keyAbilityId = id;
+      }
+    }
+
+    final input = BiographyInput(
+      characterName: _character.name,
+      raceName: _character.race,
+      className: _character.characterClass,
+      backgroundName: GameData.backgroundById(_character.backgroundId)?.name ?? '',
+      skillNames: _character.skillProficiencies.map((s) => s.label).toList(),
+      keyAbilityLabel: Ability.fromCode(keyAbilityId.toLowerCase()).label,
+      keyAbilityScore: _character.totalScore(keyAbilityId),
+    );
+
+    final generated = BiographyGenerator.generate(input, _biographyTone);
+    setState(() {
+      _notesController.text = generated;
+    });
+  }
 
   // -- Build ------------------------------------------------------------------
 
@@ -354,6 +382,25 @@ class _CharacterSheetScreenState extends State<CharacterSheetScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('Заметки', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final tone in BiographyTone.values)
+                        ChoiceChip(
+                          label: Text(tone.labelRu),
+                          selected: _biographyTone == tone,
+                          onSelected: (_) => setState(() => _biographyTone = tone),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: _generateBiography,
+                    icon: const Icon(Icons.auto_awesome_outlined),
+                    label: const Text('Сгенерировать биографию'),
+                  ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: _notesController,
