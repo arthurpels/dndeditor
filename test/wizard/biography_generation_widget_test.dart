@@ -28,6 +28,10 @@ void main() {
     await tester.tap(find.byIcon(Icons.add));
     await tester.pumpAndSettle();
 
+    // The wizard shows an onboarding dialog on open — dismiss it first.
+    await tester.tap(find.text('Понятно'));
+    await tester.pumpAndSettle();
+
     // Basics: name + race + class + background.
     await tester.enterText(find.byType(TextFormField).first, 'Торин');
     await _tapVisible(tester, find.text('Человек'));
