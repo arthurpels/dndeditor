@@ -45,6 +45,11 @@ class ReviewStep extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const WizardHintCard(
+            title: 'Перед сохранением',
+            body: 'Здесь можно проверить итоговые характеристики, навыки и боевые параметры. После сохранения персонаж попадёт в библиотеку, а текущие HP и заметки можно будет менять позже.',
+          ),
+          const SizedBox(height: 16),
           Text(controller.name, style: Theme.of(context).textTheme.headlineMedium),
           Text('${race.nameRu} · ${cls.nameRu} · ${background.nameRu} · Уровень 1'),
           const SizedBox(height: 20),

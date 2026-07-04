@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../models/character.dart';
@@ -27,6 +28,16 @@ class HomeScreen extends StatelessWidget {
                 tooltip: 'Импорт из файла',
                 onPressed: () => _importFromFile(context, repository),
                 icon: const Icon(Icons.file_open_outlined),
+              ),
+              IconButton(
+                tooltip: 'Импорт из буфера',
+                onPressed: () => _importFromClipboard(context, repository),
+                icon: const Icon(Icons.paste_outlined),
+              ),
+              IconButton(
+                tooltip: 'Копировать JSON',
+                onPressed: () => _copyToClipboard(context, repository),
+                icon: const Icon(Icons.copy_outlined),
               ),
               IconButton(
                 tooltip: 'Экспорт в файл',
@@ -160,6 +171,76 @@ class HomeScreen extends StatelessWidget {
     await _openCharacter(context, added);
   }
 
+  Future<void> _copyToClipboard(
+    BuildContext context,
+    CharacterRepository repository,
+  ) async {
+    try {
+      await Clipboard.setData(ClipboardData(text: repository.exportOwnedJson()));
+      if (!context.mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('JSON скопирован в буфер обмена')),
+      );
+    } catch (error) {
+      if (!context.mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Не удалось скопировать JSON: $error')),
+      );
+    }
+  }
+
+  Future<void> _importFromClipboard(
+    BuildContext context,
+    CharacterRepository repository,
+  ) async {
+    try {
+      final data = await Clipboard.getData(Clipboard.kTextPlain);
+      final text = data?.text?.trim() ?? '';
+
+      if (text.isEmpty) {
+        if (!context.mounted) {
+          return;
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('В буфере обмена нет JSON')),
+        );
+        return;
+      }
+
+      await repository.importOwnedJson(text);
+
+      if (!context.mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('JSON импортирован из буфера')),
+      );
+    } on FormatException catch (error) {
+      if (!context.mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Не удалось импортировать JSON: ${error.message}')),
+      );
+    } catch (error) {
+      if (!context.mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Не удалось импортировать JSON из буфера: $error')),
+      );
+    }
+  }
   Future<void> _exportToFile(
     BuildContext context,
     CharacterRepository repository,

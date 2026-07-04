@@ -20,6 +20,11 @@ class AbilitiesStep extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const WizardHintCard(
+            title: 'Как выбрать метод',
+            body: 'Standard Array даёт готовый набор значений, Point Buy работает через очки, а 4d6 бросает кубики. Значения можно распределять только один раз на слот.',
+          ),
+          const SizedBox(height: 16),
           SegmentedButton<AbilityMethod>(
             segments: const [
               ButtonSegment(value: AbilityMethod.standardArray, label: Text('Стандартный массив')),
