@@ -1,9 +1,9 @@
+import 'dart:async';
 import 'dart:collection';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../storage/homebrew_store.dart';
 import '../models/homebrew_class.dart';
 import '../models/homebrew_race.dart';
 
@@ -23,50 +23,40 @@ class HomebrewRepositoryScope
   }
 }
 
+/// In-memory source of truth for homebrew races and classes. Delegates all
+/// persistence to a [HomebrewStore], mirroring CharacterRepository.
 class HomebrewRepository extends ChangeNotifier {
   HomebrewRepository._({
     required List<HomebrewRace> races,
     required List<HomebrewClass> classes,
+    required HomebrewStore store,
   })  : _races = races,
-        _classes = classes;
+        _classes = classes,
+        _store = store;
 
-  static const _racesKey = 'homebrew_races_v1';
-  static const _classesKey = 'homebrew_classes_v1';
+  factory HomebrewRepository.seeded({HomebrewStore? store}) =>
+      HomebrewRepository._(
+        races: [],
+        classes: [],
+        store: store ?? LocalHomebrewStore(),
+      );
 
   final List<HomebrewRace> _races;
   final List<HomebrewClass> _classes;
-  SharedPreferences? _prefs;
-
-  factory HomebrewRepository.seeded() =>
-      HomebrewRepository._(races: [], classes: []);
-
-  static Future<HomebrewRepository> bootstrap() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final repo = HomebrewRepository._(
-        races: _decodeRaces(prefs.getString(_racesKey)),
-        classes: _decodeClasses(prefs.getString(_classesKey)),
-      );
-      repo._prefs = prefs;
-      return repo;
-    } catch (_) {
-      return HomebrewRepository._(races: [], classes: []);
-    }
-  }
+  final HomebrewStore _store;
 
   Future<void> loadPersistedState() async {
-    try {
-      _prefs = await SharedPreferences.getInstance();
-      _races
-        ..clear()
-        ..addAll(_decodeRaces(_prefs!.getString(_racesKey)));
-      _classes
-        ..clear()
-        ..addAll(_decodeClasses(_prefs!.getString(_classesKey)));
-      notifyListeners();
-    } catch (e) {
-      debugPrint('HomebrewRepository.loadPersistedState failed: $e');
-    }
+    final results = await Future.wait([
+      _store.loadRaces(),
+      _store.loadClasses(),
+    ]);
+    _races
+      ..clear()
+      ..addAll(results[0] as List<HomebrewRace>);
+    _classes
+      ..clear()
+      ..addAll(results[1] as List<HomebrewClass>);
+    notifyListeners();
   }
 
   UnmodifiableListView<HomebrewRace> get races =>
@@ -121,42 +111,6 @@ class HomebrewRepository extends ChangeNotifier {
 
   // --- Persistence ---
 
-  void _persistRaces() {
-    _prefs?.setString(
-      _racesKey,
-      jsonEncode(_races.map((r) => r.toJson()).toList()),
-    );
-  }
-
-  void _persistClasses() {
-    _prefs?.setString(
-      _classesKey,
-      jsonEncode(_classes.map((c) => c.toJson()).toList()),
-    );
-  }
-
-  static List<HomebrewRace> _decodeRaces(String? raw) {
-    if (raw == null || raw.isEmpty) return [];
-    try {
-      final list = jsonDecode(raw) as List<dynamic>;
-      return list
-          .map((e) => HomebrewRace.fromJson(Map<String, dynamic>.from(e as Map)))
-          .toList();
-    } catch (_) {
-      return [];
-    }
-  }
-
-  static List<HomebrewClass> _decodeClasses(String? raw) {
-    if (raw == null || raw.isEmpty) return [];
-    try {
-      final list = jsonDecode(raw) as List<dynamic>;
-      return list
-          .map((e) =>
-              HomebrewClass.fromJson(Map<String, dynamic>.from(e as Map)))
-          .toList();
-    } catch (_) {
-      return [];
-    }
-  }
+  void _persistRaces() => unawaited(_store.saveRaces(_races));
+  void _persistClasses() => unawaited(_store.saveClasses(_classes));
 }

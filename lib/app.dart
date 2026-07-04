@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'app_bootstrap.dart';
 import 'homebrew/repository/homebrew_repository.dart';
 import 'repository/character_repository.dart';
 import 'screens/home_screen.dart';
@@ -13,23 +14,22 @@ class DndEditorApp extends StatefulWidget {
 }
 
 class _DndEditorAppState extends State<DndEditorApp> {
-  late final CharacterRepository _characters;
-  late final HomebrewRepository _homebrew;
+  late final AppBootstrap _boot;
 
   @override
   void initState() {
     super.initState();
-    _characters = CharacterRepository.seeded();
-    _homebrew = HomebrewRepository.seeded();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _bootstrap());
+    _boot = AppBootstrap.seeded();
+    // Render Home immediately with seeded content, then hydrate in background.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _hydrate());
   }
 
   @override
   Widget build(BuildContext context) {
     return HomebrewRepositoryScope(
-      repository: _homebrew,
+      repository: _boot.homebrew,
       child: CharacterRepositoryScope(
-        repository: _characters,
+        repository: _boot.characters,
         child: MaterialApp(
           debugShowCheckedModeBanner: false,
           title: 'DND Editor',
@@ -40,11 +40,8 @@ class _DndEditorAppState extends State<DndEditorApp> {
     );
   }
 
-  Future<void> _bootstrap() async {
-    await Future.wait([
-      _characters.loadPersistedState(),
-      _homebrew.loadPersistedState(),
-    ]);
+  Future<void> _hydrate() async {
+    await _boot.hydrate();
     if (mounted) setState(() {});
   }
 }

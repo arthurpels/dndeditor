@@ -3,11 +3,10 @@ import 'dart:collection';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/ability.dart';
 import '../models/character.dart';
+import '../storage/character_store.dart';
 
 class CharacterRepositoryScope extends InheritedNotifier<CharacterRepository> {
   const CharacterRepositoryScope({
@@ -24,75 +23,132 @@ class CharacterRepositoryScope extends InheritedNotifier<CharacterRepository> {
   }
 }
 
+/// In-memory source of truth for characters. Holds the owned/ready-made lists,
+/// notifies listeners on change, and delegates all persistence to a
+/// [CharacterStore]. It knows nothing about *where* data is stored, which is
+/// what keeps a future backend swap isolated to the store layer.
 class CharacterRepository extends ChangeNotifier {
   CharacterRepository._({
     required List<Character> ownedCharacters,
     required List<Character> readyMadeCharacters,
-  }) : _ownedCharacters = ownedCharacters,
-       _readyMadeCharacters = readyMadeCharacters;
+    required CharacterStore store,
+  })  : _ownedCharacters = ownedCharacters,
+        _readyMadeCharacters = readyMadeCharacters,
+        _store = store;
 
-  static const String _storageKey = 'owned_characters_v1';
-
-  factory CharacterRepository.seeded({List<Character>? readyMadeCharacters}) {
+  factory CharacterRepository.seeded({
+    List<Character>? readyMadeCharacters,
+    CharacterStore? store,
+  }) {
     return CharacterRepository._(
       ownedCharacters: <Character>[],
       readyMadeCharacters: readyMadeCharacters ?? _defaultReadyMadeCharacters(),
+      store: store ?? LocalCharacterStore(),
     );
   }
 
+  final List<Character> _ownedCharacters;
+  final List<Character> _readyMadeCharacters;
+  final CharacterStore _store;
+  int _sequence = 0;
+
+  /// Load persisted owned characters from the store into memory.
   Future<void> loadPersistedState() async {
-    try {
-      _prefs = await SharedPreferences.getInstance();
-      _loadOwnedCharacters();
-      notifyListeners();
-    } catch (error, stackTrace) {
-      debugPrint('SharedPreferences load failed: $error');
-      debugPrintStack(stackTrace: stackTrace);
-    }
+    final loaded = await _store.loadOwned();
+    _ownedCharacters
+      ..clear()
+      ..addAll(loaded);
+    notifyListeners();
   }
 
-  static Future<CharacterRepository> bootstrap() async {
-    try {
-      final repository = CharacterRepository.seeded(
-        readyMadeCharacters: await _loadReadyMadeCharacters(),
+  UnmodifiableListView<Character> get ownedCharacters =>
+      UnmodifiableListView(_ownedCharacters);
+
+  UnmodifiableListView<Character> get readyMadeCharacters =>
+      UnmodifiableListView(_readyMadeCharacters);
+
+  String exportOwnedJson() {
+    return const JsonEncoder.withIndent(
+      '  ',
+    ).convert(_ownedCharacters.map((character) => character.toJson()).toList());
+  }
+
+  Future<void> importOwnedJson(String source) async {
+    final decoded = jsonDecode(source);
+    final List<dynamic> rawCharacters;
+    if (decoded is List<dynamic>) {
+      rawCharacters = decoded;
+    } else if (decoded is Map<String, dynamic>) {
+      rawCharacters = <dynamic>[decoded];
+    } else {
+      throw const FormatException('Unsupported character export format');
+    }
+
+    _ownedCharacters
+      ..clear()
+      ..addAll(
+        rawCharacters.map(
+          (entry) =>
+              Character.fromJson(Map<String, Object?>.from(entry as Map)),
+        ),
       );
-      try {
-        repository._prefs = await SharedPreferences.getInstance();
-        repository._loadOwnedCharacters();
-      } catch (error, stackTrace) {
-        debugPrint('SharedPreferences bootstrap failed: $error');
-        debugPrintStack(stackTrace: stackTrace);
-      }
-      return repository;
-    } catch (error, stackTrace) {
-      debugPrint('CharacterRepository bootstrap failed: $error');
-      debugPrintStack(stackTrace: stackTrace);
-      return CharacterRepository.seeded();
-    }
+
+    notifyListeners();
+    await _store.saveOwned(_ownedCharacters);
   }
 
-  static Future<List<Character>> _loadReadyMadeCharacters() async {
-    const assetPaths = <String>[
-      'assets/characters/torin.json',
-      'assets/characters/liael.json',
-      'assets/characters/mila.json',
-    ];
+  Character createDraftCharacter() {
+    final draft = Character.blank(id: _nextId('draft'));
+    _ownedCharacters.insert(0, draft);
+    notifyListeners();
+    _persist();
+    return draft;
+  }
 
-    final characters = <Character>[];
-    for (final assetPath in assetPaths) {
-      try {
-        final rawJson = await rootBundle.loadString(assetPath);
-        characters.add(
-          Character.fromJson(
-            Map<String, Object?>.from(jsonDecode(rawJson) as Map),
-          ),
-        );
-      } on Object {
-        continue;
+  Character addToOwned(Character character) {
+    final added = character.copyWith(id: _nextId(character.id));
+    _ownedCharacters.insert(0, added);
+    notifyListeners();
+    _persist();
+    return added;
+  }
+
+  void duplicateOwned(String id) {
+    final source = _ownedCharacters.firstWhere((item) => item.id == id);
+    addToOwned(
+      source.copyWith(id: _nextId(source.id), name: '${source.name} (копия)'),
+    );
+  }
+
+  void removeOwned(String id) {
+    _ownedCharacters.removeWhere((item) => item.id == id);
+    notifyListeners();
+    _persist();
+  }
+
+  Character? ownedById(String id) {
+    for (final character in _ownedCharacters) {
+      if (character.id == id) {
+        return character;
       }
     }
+    return null;
+  }
 
-    return characters;
+  /// Update an owned character in-place and persist the change.
+  void updateOwned(Character updated) {
+    final index = _ownedCharacters.indexWhere((c) => c.id == updated.id);
+    if (index < 0) return;
+    _ownedCharacters[index] = updated;
+    notifyListeners();
+    _persist();
+  }
+
+  void _persist() => unawaited(_store.saveOwned(_ownedCharacters));
+
+  String _nextId(String prefix) {
+    _sequence += 1;
+    return '$prefix-${_sequence.toString().padLeft(3, '0')}';
   }
 
   static List<Character> _defaultReadyMadeCharacters() {
@@ -132,133 +188,5 @@ class CharacterRepository extends ChangeNotifier {
         biography: 'Тихая, быстрая, очень внимательная к деталям.',
       ),
     ];
-  }
-
-  final List<Character> _ownedCharacters;
-  final List<Character> _readyMadeCharacters;
-  SharedPreferences? _prefs;
-  int _sequence = 0;
-
-  UnmodifiableListView<Character> get ownedCharacters =>
-      UnmodifiableListView(_ownedCharacters);
-
-  UnmodifiableListView<Character> get readyMadeCharacters =>
-      UnmodifiableListView(_readyMadeCharacters);
-
-  String exportOwnedJson() {
-    return const JsonEncoder.withIndent(
-      '  ',
-    ).convert(_ownedCharacters.map((character) => character.toJson()).toList());
-  }
-
-  Future<void> importOwnedJson(String source) async {
-    final decoded = jsonDecode(source);
-    final List<dynamic> rawCharacters;
-    if (decoded is List<dynamic>) {
-      rawCharacters = decoded;
-    } else if (decoded is Map<String, dynamic>) {
-      rawCharacters = <dynamic>[decoded];
-    } else {
-      throw const FormatException('Unsupported character export format');
-    }
-
-    _ownedCharacters
-      ..clear()
-      ..addAll(
-        rawCharacters.map(
-          (entry) =>
-              Character.fromJson(Map<String, Object?>.from(entry as Map)),
-        ),
-      );
-
-    notifyListeners();
-    await _persistOwnedCharacters();
-  }
-
-  Character createDraftCharacter() {
-    final draft = Character.blank(id: _nextId('draft'));
-    _ownedCharacters.insert(0, draft);
-    notifyListeners();
-    unawaited(_persistOwnedCharacters());
-    return draft;
-  }
-
-  Character addToOwned(Character character) {
-    final added = character.copyWith(id: _nextId(character.id));
-    _ownedCharacters.insert(0, added);
-    notifyListeners();
-    unawaited(_persistOwnedCharacters());
-    return added;
-  }
-
-  void duplicateOwned(String id) {
-    final source = _ownedCharacters.firstWhere((item) => item.id == id);
-    addToOwned(
-      source.copyWith(id: _nextId(source.id), name: '${source.name} (копия)'),
-    );
-  }
-
-  void removeOwned(String id) {
-    _ownedCharacters.removeWhere((item) => item.id == id);
-    notifyListeners();
-    unawaited(_persistOwnedCharacters());
-  }
-
-  Character? ownedById(String id) {
-    for (final character in _ownedCharacters) {
-      if (character.id == id) {
-        return character;
-      }
-    }
-    return null;
-  }
-
-  /// Update an owned character in-place and persist the change.
-  void updateOwned(Character updated) {
-    final index = _ownedCharacters.indexWhere((c) => c.id == updated.id);
-    if (index < 0) return;
-    _ownedCharacters[index] = updated;
-    notifyListeners();
-    unawaited(_persistOwnedCharacters());
-  }
-
-  void _loadOwnedCharacters() {
-    final rawJson = _prefs?.getString(_storageKey);
-    if (rawJson == null || rawJson.isEmpty) {
-      return;
-    }
-
-    final decoded = jsonDecode(rawJson);
-    if (decoded is! List<dynamic>) {
-      return;
-    }
-
-    _ownedCharacters
-      ..clear()
-      ..addAll(
-        decoded.map(
-          (entry) =>
-              Character.fromJson(Map<String, Object?>.from(entry as Map)),
-        ),
-      );
-  }
-
-  Future<void> _persistOwnedCharacters() async {
-    final prefs = _prefs;
-    if (prefs == null) {
-      return;
-    }
-
-    await prefs.setString(
-      _storageKey,
-      jsonEncode(
-        _ownedCharacters.map((character) => character.toJson()).toList(),
-      ),
-    );
-  }
-
-  String _nextId(String prefix) {
-    _sequence += 1;
-    return '$prefix-${_sequence.toString().padLeft(3, '0')}';
   }
 }
